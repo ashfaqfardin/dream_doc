@@ -1,0 +1,701 @@
+"""
+Generate 64 diverse prompts (8 per category) for vitality sweep experiments.
+Saves to prompts/vitality_prompts.json and prompts/semantic_prompts.json.
+
+Usage:
+    python generate_prompts.py                              # use built-in prompts
+    python generate_prompts.py --openai_key sk-...          # use OpenAI to generate
+    python generate_prompts.py --qwen --hf_token hf_...     # use Qwen3.5-27B via HF API
+"""
+
+import json
+import os
+import argparse
+import re
+
+# ---------------------------------------------------------------------------
+# Hardcoded fallback prompts (8 per category × 8 categories = 64 total)
+# ---------------------------------------------------------------------------
+BUILTIN_PROMPTS = {
+    "animals in nature": [
+        "a golden eagle soaring over a mountain valley at dawn",
+        "a wolf pack resting in a snow-covered forest",
+        "a hummingbird hovering near a tropical flower in a jungle",
+        "a brown bear catching salmon in a rushing river",
+        "a family of elephants walking across the African savanna at sunset",
+        "a leopard resting on a tree branch in the African bush",
+        "a school of colorful fish swimming near a coral reef",
+        "a red fox running through an autumn meadow",
+    ],
+    "urban scenes": [
+        "a busy intersection in Tokyo at night with neon signs",
+        "a cobblestone street in Paris with cafes and tourists",
+        "an empty subway platform with yellow safety lines",
+        "a rooftop garden in New York City with skyscrapers behind",
+        "a street market in Marrakech with colorful spices and textiles",
+        "a double-decker bus on a rainy London street",
+        "a modern glass office building reflecting the sky",
+        "a graffiti-covered alleyway in Berlin with murals",
+    ],
+    "food and objects": [
+        "a wooden cutting board with freshly sliced artisan bread and olive oil",
+        "a bowl of ramen with soft-boiled egg, nori, and chashu pork",
+        "a French macaron tower with pastel colors on a marble counter",
+        "a cast iron skillet with sizzling eggs and vegetables",
+        "a charcuterie board with cheese, grapes, and cured meats",
+        "a glass of red wine next to a burning candle and a book",
+        "a stack of vintage leather-bound books on a wooden shelf",
+        "a ceramic coffee cup with latte art on a cafe table",
+    ],
+    "human portraits": [
+        "a young woman in a floral dress reading in a sunlit library",
+        "an elderly fisherman on a wooden dock at sunrise",
+        "a child blowing dandelion seeds in a meadow",
+        "a street musician playing guitar in a busy plaza",
+        "a chef plating an intricate dish in a professional kitchen",
+        "a ballet dancer mid-leap on an outdoor stage",
+        "a scientist examining samples under a microscope in a lab",
+        "a grandmother knitting by a fireplace in a cozy cottage",
+    ],
+    "abstract scenes": [
+        "swirling galaxies of blue and gold light in deep space",
+        "geometric crystals growing in a surreal underground cave",
+        "liquid metallic shapes floating in a neon dreamscape",
+        "fractal patterns blooming like flowers in infinite space",
+        "translucent bubbles filled with miniature worlds",
+        "a labyrinth of mirrors reflecting colorful light beams",
+        "waves of sound visualized as colorful ribbons in the air",
+        "a clock melting in a surrealist desert landscape",
+    ],
+    "indoor environments": [
+        "a cozy reading nook with a window seat and rain outside",
+        "a modern Scandinavian kitchen with white cabinets and plants",
+        "a cluttered artist's studio with canvases and paint tubes",
+        "a grand Victorian ballroom with chandeliers and ornate decor",
+        "a home greenhouse with lush plants and morning light",
+        "a minimalist Japanese tea room with tatami mats",
+        "a children's bedroom with colorful toys and a bunk bed",
+        "a dimly lit jazz bar with wooden booths and brick walls",
+    ],
+    "vehicles": [
+        "a vintage red Ferrari on a winding mountain road in Italy",
+        "a steam locomotive crossing a steel bridge over a river",
+        "a sailing yacht at sunset on calm Mediterranean waters",
+        "a yellow school bus parked on a tree-lined street in autumn",
+        "a space shuttle launching with a trail of fire and smoke",
+        "a sleek silver cargo ship crossing a stormy ocean",
+        "a colorful hot air balloon floating over green hills",
+        "a weathered wooden fishing boat anchored in a harbor",
+    ],
+    "landscapes": [
+        "a misty fjord in Norway with reflections on the still water",
+        "a field of lavender under a purple evening sky in Provence",
+        "a vast red desert with towering sandstone mesas at sunrise",
+        "a dense bamboo forest with sunlight filtering through",
+        "a frozen lake surrounded by snow-capped mountains",
+        "a tropical beach with white sand, turquoise water, and palm trees",
+        "a windswept moor under dramatic storm clouds in Scotland",
+        "a vineyard on rolling hills in Tuscany during harvest season",
+    ],
+}
+
+# ---------------------------------------------------------------------------
+# Semantic contrast pairs (50 per category — using 10 representative pairs
+# here; extend as needed)
+# ---------------------------------------------------------------------------
+SEMANTIC_PROMPTS = {
+    "colour": [
+        ("a red apple on a wooden table", "a green apple on a wooden table"),
+        ("a blue car parked on the street", "a yellow car parked on the street"),
+        ("a red rose in a glass vase", "a white rose in a glass vase"),
+        ("a woman in a red dress at a party", "a woman in a blue dress at a party"),
+        ("a purple butterfly on a flower", "an orange butterfly on a flower"),
+        ("a red barn in a snowy field", "a blue barn in a snowy field"),
+        ("a black cat sitting on a window ledge", "a white cat sitting on a window ledge"),
+        ("red autumn leaves on the ground", "yellow autumn leaves on the ground"),
+        ("a pink flamingo standing in a lake", "a white flamingo standing in a lake"),
+        ("a red umbrella in the rain", "a yellow umbrella in the rain"),
+        ("red tulips in a garden", "yellow tulips in a garden"),
+        ("a navy blue sofa in a living room", "a beige sofa in a living room"),
+        ("a man wearing a green jacket", "a man wearing a brown jacket"),
+        ("a red sports car on a racetrack", "a blue sports car on a racetrack"),
+        ("a green frog on a lily pad", "a brown frog on a lily pad"),
+        ("a pink sunset over the ocean", "an orange sunset over the ocean"),
+        ("blue hydrangeas in a bouquet", "pink hydrangeas in a bouquet"),
+        ("a silver cup on a shelf", "a gold cup on a shelf"),
+        ("a red bicycle leaning against a wall", "a black bicycle leaning against a wall"),
+        ("a turquoise swimming pool on a sunny day", "a dark blue swimming pool on a sunny day"),
+        ("a yellow school bus on a road", "a red school bus on a road"),
+        ("a grey stone house on a hillside", "a white stone house on a hillside"),
+        ("a chocolate brown horse in a field", "a grey horse in a field"),
+        ("a green lawn in front of a house", "a dry yellow lawn in front of a house"),
+        ("a red lobster on a plate", "a grey lobster on a plate"),
+        ("a blue jay on a tree branch", "a red cardinal on a tree branch"),
+        ("a woman with auburn hair by a river", "a woman with blonde hair by a river"),
+        ("a copper teapot on a stove", "a silver teapot on a stove"),
+        ("a dark green forest at dusk", "a golden forest at dusk"),
+        ("a pink cherry blossom tree in spring", "a white cherry blossom tree in spring"),
+        ("a red-brick building in the city", "a grey-brick building in the city"),
+        ("a violet lightning bolt in a storm", "a white lightning bolt in a storm"),
+        ("a green lizard on a rock", "a brown lizard on a rock"),
+        ("an orange pumpkin on a porch", "a white pumpkin on a porch"),
+        ("a blue glacier in Iceland", "a white glacier in Iceland"),
+        ("a red barn owl perched on a post", "a white barn owl perched on a post"),
+        ("a green sports jersey hanging up", "a red sports jersey hanging up"),
+        ("a boy with a blue backpack at school", "a boy with a red backpack at school"),
+        ("a purple eggplant on a cutting board", "a green zucchini on a cutting board"),
+        ("a pink flamingo lawn ornament", "a grey flamingo lawn ornament"),
+        ("a dark red wine bottle on a table", "a clear white wine bottle on a table"),
+        ("a golden retriever on a beach", "a black labrador on a beach"),
+        ("a red kite flying in the sky", "a blue kite flying in the sky"),
+        ("a green cactus in a desert", "a yellow cactus in a desert"),
+        ("a brown leather sofa in a study", "a black leather sofa in a study"),
+        ("a red fox in a snowy field", "a grey wolf in a snowy field"),
+        ("a green tea in a bowl", "a black tea in a bowl"),
+        ("a pink flamingo in a tropical garden", "a grey heron in a tropical garden"),
+        ("a red pickup truck on a farm road", "a blue pickup truck on a farm road"),
+        ("a yellow banana on a counter", "a green banana on a counter"),
+    ],
+    "style": [
+        ("a photorealistic cat sitting on a chair", "an oil painting of a cat sitting on a chair"),
+        ("a photorealistic portrait of a woman", "a watercolor portrait of a woman"),
+        ("a photorealistic mountain landscape", "a pencil sketch of a mountain landscape"),
+        ("a photorealistic cityscape at night", "a cubist painting of a cityscape at night"),
+        ("a photorealistic bowl of fruit", "an impressionist painting of a bowl of fruit"),
+        ("a photorealistic forest", "a pixel art illustration of a forest"),
+        ("a photorealistic dog on a beach", "a cartoon illustration of a dog on a beach"),
+        ("a photorealistic sunset over the sea", "a stained glass window depiction of a sunset over the sea"),
+        ("a photorealistic kitchen", "a comic book illustration of a kitchen"),
+        ("a photorealistic child playing", "an anime illustration of a child playing"),
+        ("a photorealistic coffee cup", "a charcoal sketch of a coffee cup"),
+        ("a photorealistic garden in spring", "a ukiyo-e woodblock print of a garden in spring"),
+        ("a photorealistic street in Paris", "a pointillist painting of a street in Paris"),
+        ("a photorealistic wolf howling", "a neon sign style illustration of a wolf howling"),
+        ("a photorealistic boat on a river", "a folk art painting of a boat on a river"),
+        ("a photorealistic eagle in flight", "a low-poly 3D render of an eagle in flight"),
+        ("a photorealistic old man reading", "a Renaissance painting style depiction of an old man reading"),
+        ("a photorealistic rose", "a graffiti mural of a rose"),
+        ("a photorealistic lighthouse in a storm", "a Gothic illustration of a lighthouse in a storm"),
+        ("a photorealistic child with a balloon", "a papercut art depiction of a child with a balloon"),
+        ("a photorealistic barn in winter", "a naive art painting of a barn in winter"),
+        ("a photorealistic tiger", "an ink wash painting of a tiger"),
+        ("a photorealistic castle on a hill", "a surrealist painting of a castle on a hill"),
+        ("a photorealistic beach scene", "a lino print of a beach scene"),
+        ("a photorealistic market stall", "an abstract painting of a market stall"),
+        ("a photorealistic bicycle", "a blueprint technical drawing of a bicycle"),
+        ("a photorealistic library interior", "a baroque painting of a library interior"),
+        ("a photorealistic autumn forest", "an Art Nouveau illustration of an autumn forest"),
+        ("a photorealistic fish underwater", "a mosaic tile art depiction of fish underwater"),
+        ("a photorealistic skyline", "a minimalist vector illustration of a skyline"),
+        ("a photorealistic musician playing guitar", "an expressionist painting of a musician playing guitar"),
+        ("a photorealistic horse galloping", "a bronze sculpture photograph of a horse galloping"),
+        ("a photorealistic waterfall", "a landscape painting in the style of Turner of a waterfall"),
+        ("a photorealistic food market", "a pop art print of a food market"),
+        ("a photorealistic snowy cabin", "a felt craft illustration of a snowy cabin"),
+        ("a photorealistic volcano erupting", "a retro travel poster of a volcano"),
+        ("a photorealistic bird on a branch", "a Japanese sumi-e ink painting of a bird on a branch"),
+        ("a photorealistic hot air balloon", "a vintage engraving of a hot air balloon"),
+        ("a photorealistic glacier", "a scientific illustration of a glacier"),
+        ("a photorealistic wedding scene", "a flat design illustration of a wedding scene"),
+        ("a photorealistic child reading a book", "an illuminated manuscript style depiction of a child reading"),
+        ("a photorealistic thunderstorm", "a romantic era oil painting of a thunderstorm"),
+        ("a photorealistic wheat field", "a Van Gogh style painting of a wheat field"),
+        ("a photorealistic lighthouse", "a sand painting of a lighthouse"),
+        ("a photorealistic frog", "a ceramic sculpture photograph of a frog"),
+        ("a photorealistic autumn leaves", "a woodblock print of autumn leaves"),
+        ("a photorealistic windmill", "a Delft tile illustration of a windmill"),
+        ("a photorealistic starry sky", "a mosaic of a starry sky"),
+        ("a photorealistic old car", "a retro illustration of an old car"),
+        ("a photorealistic mountain village", "a cross-stitch embroidery photograph of a mountain village"),
+    ],
+    "material": [
+        ("a wooden chair in a living room", "a metal chair in a living room"),
+        ("a glass vase on a shelf", "a ceramic vase on a shelf"),
+        ("a leather sofa in a study", "a fabric sofa in a study"),
+        ("a stone wall in a garden", "a brick wall in a garden"),
+        ("a plastic bottle on a table", "a glass bottle on a table"),
+        ("a silver ring on a hand", "a gold ring on a hand"),
+        ("a concrete bridge over a river", "a wooden bridge over a river"),
+        ("a copper teapot on a counter", "a plastic teapot on a counter"),
+        ("a marble floor in a hallway", "a wooden floor in a hallway"),
+        ("a steel door on a building", "a wooden door on a building"),
+        ("a rubber tire on a car", "a chrome wheel on a car"),
+        ("a silk scarf around a neck", "a wool scarf around a neck"),
+        ("a bamboo fence in a garden", "a metal fence in a garden"),
+        ("a wicker basket on a table", "a plastic basket on a table"),
+        ("a felt hat on a coat rack", "a leather hat on a coat rack"),
+        ("a clay pot on a windowsill", "a metal pot on a windowsill"),
+        ("a canvas bag on a shoulder", "a leather bag on a shoulder"),
+        ("a wooden spoon in a pot", "a metal spoon in a pot"),
+        ("a crystal chandelier in a dining room", "a brass chandelier in a dining room"),
+        ("a paper lantern in a garden", "a glass lantern in a garden"),
+        ("a linen shirt on a hanger", "a polyester shirt on a hanger"),
+        ("a porcelain cup on a table", "a tin cup on a table"),
+        ("a rubber duck in a bathtub", "a plastic boat in a bathtub"),
+        ("a steel filing cabinet in an office", "a wooden filing cabinet in an office"),
+        ("a fiberglass kayak on a lake", "a wooden kayak on a lake"),
+        ("a granite kitchen counter", "a wooden kitchen counter"),
+        ("a velvet cushion on a sofa", "a leather cushion on a sofa"),
+        ("a concrete garden planter", "a terracotta garden planter"),
+        ("a titanium watch on a wrist", "a leather watch on a wrist"),
+        ("a bronze statue in a park", "a stone statue in a park"),
+        ("a nylon tent at a campsite", "a canvas tent at a campsite"),
+        ("a glass greenhouse in a garden", "a plastic greenhouse in a garden"),
+        ("a cork board on a wall", "a whiteboard on a wall"),
+        ("a cast iron pan on a stove", "a non-stick pan on a stove"),
+        ("a wooden picture frame", "a metal picture frame"),
+        ("a polished chrome faucet", "a brushed brass faucet"),
+        ("a rubber rain boot", "a leather rain boot"),
+        ("a jute rug on a floor", "a wool rug on a floor"),
+        ("a glass coffee table", "a wooden coffee table"),
+        ("a steel water bottle", "a plastic water bottle"),
+        ("a marble fireplace surround", "a brick fireplace surround"),
+        ("a paper umbrella in a drink", "a plastic umbrella in a drink"),
+        ("a concrete stadium", "a steel stadium"),
+        ("a silicone baking mold", "a metal baking mold"),
+        ("a straw hat on a beach", "a plastic hat on a beach"),
+        ("a clay tablet with writing", "a stone tablet with writing"),
+        ("a cellophane-wrapped gift", "a paper-wrapped gift"),
+        ("a rubber gasket on a pipe", "a metal gasket on a pipe"),
+        ("a ceramic tile backsplash", "a glass tile backsplash"),
+        ("a foam mattress on a bed frame", "a spring mattress on a bed frame"),
+    ],
+    "texture": [
+        ("a smooth stone on a riverbank", "a rough stone on a riverbank"),
+        ("a smooth leather wallet", "a cracked leather wallet"),
+        ("a smooth wooden table", "a rough-hewn wooden table"),
+        ("a smooth pebble beach", "a rocky pebble beach"),
+        ("a smooth concrete wall", "a rough concrete wall"),
+        ("a smooth silk pillow", "a textured linen pillow"),
+        ("a smooth glass bottle", "a frosted glass bottle"),
+        ("a smooth clay pot", "a rough clay pot"),
+        ("a smooth metal surface", "a hammered metal surface"),
+        ("a smooth plastic toy", "a textured rubber toy"),
+        ("a smooth asphalt road", "a cracked asphalt road"),
+        ("a smooth marble counter", "a rough granite counter"),
+        ("a smooth ice surface", "a rough icy surface"),
+        ("a smooth rubber ball", "a dimpled rubber ball"),
+        ("a smooth wooden floor", "a rough wooden floor"),
+        ("a smooth eggshell", "a speckled eggshell"),
+        ("a smooth ceramic mug", "a rough ceramic mug"),
+        ("a smooth sand beach", "a coarse sand beach"),
+        ("a smooth metal door", "a rusty metal door"),
+        ("a smooth plastic casing", "a knurled plastic casing"),
+        ("a smooth stucco wall", "a rough stucco wall"),
+        ("a smooth tree trunk", "a rough tree trunk"),
+        ("a smooth painted wall", "a textured painted wall"),
+        ("a smooth porcelain sink", "a rough cast iron sink"),
+        ("a smooth bone handle", "a rough bone handle"),
+        ("a smooth glacier surface", "a crevassed glacier surface"),
+        ("a smooth cotton fabric", "a rough burlap fabric"),
+        ("a smooth fiberglass boat", "a rough wooden boat"),
+        ("a smooth cheese rind", "a waxy cheese rind"),
+        ("a smooth rubber mat", "a textured rubber mat"),
+        ("a smooth wax candle", "a rough bark candle"),
+        ("a smooth velvet cushion", "a bumpy velvet cushion"),
+        ("a smooth steel beam", "a corrugated steel beam"),
+        ("a smooth mountain face", "a jagged mountain face"),
+        ("a smooth felt board", "a rough felt board"),
+        ("a smooth plastic chair", "a rough wicker chair"),
+        ("a smooth river rock", "a jagged cave rock"),
+        ("a smooth baby blanket", "a rough wool blanket"),
+        ("a smooth vinyl floor", "a textured tile floor"),
+        ("a smooth chocolate bar", "a rough chocolate bar"),
+        ("a smooth lake surface", "a rippled lake surface"),
+        ("a smooth foam pad", "a rough cork pad"),
+        ("a smooth terracotta pot", "a rough terracotta pot"),
+        ("a smooth hardwood plank", "a rough-sawn plank"),
+        ("a smooth plastic panel", "a ribbed plastic panel"),
+        ("a smooth cast iron radiator", "a rough stone radiator"),
+        ("a smooth silk dress", "a rough linen dress"),
+        ("a smooth paper sheet", "a textured paper sheet"),
+        ("a smooth glass dome", "a sandblasted glass dome"),
+        ("a smooth bamboo floor", "a rough bamboo floor"),
+    ],
+    "shape": [
+        ("a circular mirror on the wall", "a rectangular mirror on the wall"),
+        ("a round dining table", "a rectangular dining table"),
+        ("a spherical lamp shade", "a cylindrical lamp shade"),
+        ("a circular pool in a garden", "a rectangular pool in a garden"),
+        ("a triangular roof on a barn", "a flat roof on a barn"),
+        ("a circular window in a church", "a rectangular window in a church"),
+        ("a round loaf of bread on a board", "a rectangular loaf of bread on a board"),
+        ("a circular pizza on a plate", "a square pizza on a plate"),
+        ("a spherical ornament on a tree", "a star-shaped ornament on a tree"),
+        ("a round rug in a living room", "a rectangular rug in a living room"),
+        ("a circular courtyard", "a square courtyard"),
+        ("a dome-shaped igloo", "a rectangular cabin"),
+        ("a spiral staircase", "a straight staircase"),
+        ("a round tower on a castle", "a square tower on a castle"),
+        ("an oval swimming pool", "a rectangular swimming pool"),
+        ("a circular fountain in a plaza", "a rectangular fountain in a plaza"),
+        ("a spherical hot air balloon", "a cylindrical hot air balloon"),
+        ("a triangular sail on a boat", "a rectangular sail on a boat"),
+        ("a round fish bowl on a shelf", "a rectangular aquarium on a shelf"),
+        ("a circular archway in a garden", "a rectangular doorway in a garden"),
+        ("an oval portrait frame", "a square portrait frame"),
+        ("a round tray on a coffee table", "a rectangular tray on a coffee table"),
+        ("a circular hay bale in a field", "a rectangular hay bale in a field"),
+        ("a hemispherical igloo", "a conical tent"),
+        ("a curved bridge over a canal", "a straight bridge over a canal"),
+        ("an octagonal stop sign", "a rectangular road sign"),
+        ("a round clock on a wall", "a rectangular clock on a wall"),
+        ("a circular bandstand in a park", "a square bandstand in a park"),
+        ("a spherical Earth globe on a desk", "a flat map on a desk"),
+        ("a round birthday cake", "a rectangular birthday cake"),
+        ("an arched doorway in a building", "a flat-topped doorway in a building"),
+        ("a crescent-shaped beach cove", "a straight beach cove"),
+        ("a round island in a lake", "a long narrow island in a lake"),
+        ("a conical volcano", "a flat-topped mesa"),
+        ("a circular stage in a theater", "a rectangular stage in a theater"),
+        ("a parabolic satellite dish", "a flat antenna panel"),
+        ("a round porthole window on a ship", "a rectangular window on a ship"),
+        ("a teardrop-shaped pendant", "a square pendant"),
+        ("a horseshoe arch in a mosque", "a pointed arch in a mosque"),
+        ("a circular crop field pattern", "a rectangular crop field pattern"),
+        ("a round skylight in a ceiling", "a rectangular skylight in a ceiling"),
+        ("a boomerang-shaped sofa", "a straight sofa"),
+        ("a circular amphitheater", "a rectangular stadium"),
+        ("a rounded hill in a landscape", "a flat-topped hill in a landscape"),
+        ("a coiled snake on a rock", "a straight snake on a rock"),
+        ("a round pizza box", "a square pizza box"),
+        ("an oval bathtub", "a rectangular bathtub"),
+        ("a circular labyrinth in a garden", "a rectangular maze in a garden"),
+        ("a spherical bubble", "a cylindrical bubble"),
+        ("a circular manhole cover on a street", "a rectangular manhole cover on a street"),
+    ],
+    "layout": [
+        ("a coffee cup on the left side of a table", "a coffee cup on the right side of a table"),
+        ("a vase of flowers in the center of a table", "a vase of flowers at the edge of a table"),
+        ("a cat sitting in front of a fireplace", "a cat sitting behind a fireplace"),
+        ("a tree in the foreground of a landscape", "a tree in the background of a landscape"),
+        ("a lamp on the left side of a desk", "a lamp on the right side of a desk"),
+        ("a person standing in the center of a room", "a person standing in the corner of a room"),
+        ("a bicycle leaning against the left wall", "a bicycle leaning against the right wall"),
+        ("a plate of food in the top half of the frame", "a plate of food in the bottom half of the frame"),
+        ("a bird perched at the top of a tree", "a bird perched at the bottom of a tree"),
+        ("the sun high in the sky", "the sun low on the horizon"),
+        ("a ship in the foreground of the ocean", "a ship in the background of the ocean"),
+        ("a key on the left side of a keyhole", "a key on the right side of a keyhole"),
+        ("a car parked on the left side of the road", "a car parked on the right side of the road"),
+        ("a fruit bowl at the top of a counter", "a fruit bowl at the bottom of a counter"),
+        ("a bookshelf on the left wall of a room", "a bookshelf on the right wall of a room"),
+        ("a child standing in front of a school", "a child standing behind a school"),
+        ("a mountain reflected in a lake below it", "a mountain reflected in a sky above it"),
+        ("a path leading to the left", "a path leading to the right"),
+        ("a clock centered above a fireplace", "a clock offset to the left of a fireplace"),
+        ("a door at the end of a hallway", "a door at the start of a hallway"),
+        ("a dog on the left of its owner", "a dog on the right of its owner"),
+        ("a waterfall on the left side of a cliff", "a waterfall on the right side of a cliff"),
+        ("a window above the sofa", "a window beside the sofa"),
+        ("a star at the top of a Christmas tree", "a star at the bottom of a Christmas tree"),
+        ("a row of trees on the left of a road", "a row of trees on the right of a road"),
+        ("a person entering the left door", "a person entering the right door"),
+        ("a sunset framed by trees on both sides", "a sunset framed by a single tree on the left"),
+        ("a flower pot centered on a balcony railing", "a flower pot at the far end of a balcony railing"),
+        ("a shadow falling to the left of an object", "a shadow falling to the right of an object"),
+        ("a bridge in the center of a landscape", "a bridge at the edge of a landscape"),
+        ("a ball in front of a goal post", "a ball behind a goal post"),
+        ("a moon above the horizon", "a moon below the horizon"),
+        ("a figure on the left side of a bench", "a figure on the right side of a bench"),
+        ("a telescope pointing to the left", "a telescope pointing to the right"),
+        ("a sculpture in the center of a plaza", "a sculpture at the side of a plaza"),
+        ("a kite flying to the upper left", "a kite flying to the upper right"),
+        ("a boat sailing to the left", "a boat sailing to the right"),
+        ("a swing hanging from the left tree branch", "a swing hanging from the right tree branch"),
+        ("a gate at the front of a garden path", "a gate at the back of a garden path"),
+        ("a hat hung on the left hook", "a hat hung on the right hook"),
+        ("a ladder leaning on the left side of a wall", "a ladder leaning on the right side of a wall"),
+        ("a portrait centered on a wall", "a portrait on the left side of a wall"),
+        ("a fountain in front of a building", "a fountain behind a building"),
+        ("the tallest skyscraper on the left of the skyline", "the tallest skyscraper on the right of the skyline"),
+        ("a bench under the left arch of a bridge", "a bench under the right arch of a bridge"),
+        ("a person at the top of a hill", "a person at the bottom of a hill"),
+        ("a candle on the left side of a windowsill", "a candle on the right side of a windowsill"),
+        ("a reflection in the top half of a puddle", "a reflection in the bottom half of a puddle"),
+        ("a small boat near the shore", "a small boat far from the shore"),
+        ("a sign above the entrance", "a sign beside the entrance"),
+    ],
+    "object": [
+        ("a dog sitting on a mat", "a cat sitting on a mat"),
+        ("a horse in a grassy field", "a cow in a grassy field"),
+        ("a guitar on a stand in a room", "a violin on a stand in a room"),
+        ("a loaf of bread on a cutting board", "a wheel of cheese on a cutting board"),
+        ("a red bicycle outside a shop", "a blue scooter outside a shop"),
+        ("a wooden chair at a table", "a wooden stool at a table"),
+        ("a sunflower in a vase", "a daisy in a vase"),
+        ("a lamp on a bedside table", "a clock on a bedside table"),
+        ("an apple on a kitchen counter", "a pear on a kitchen counter"),
+        ("a cup of coffee on a desk", "a cup of tea on a desk"),
+        ("a rubber duck in a bathtub", "a toy boat in a bathtub"),
+        ("a soccer ball on a field", "a basketball on a field"),
+        ("a hammer on a workbench", "a wrench on a workbench"),
+        ("a book on a park bench", "a newspaper on a park bench"),
+        ("a pigeon on a ledge", "a sparrow on a ledge"),
+        ("a rose in a garden", "a tulip in a garden"),
+        ("a surfboard on the beach", "a kayak on the beach"),
+        ("a teapot on a kitchen shelf", "a coffee maker on a kitchen shelf"),
+        ("a shopping cart in a supermarket", "a shopping basket in a supermarket"),
+        ("a bucket and spade on the beach", "a kite on the beach"),
+        ("a fire hydrant on a city street", "a parking meter on a city street"),
+        ("a skateboard on a sidewalk", "a roller blade on a sidewalk"),
+        ("a pineapple on a plate", "a mango on a plate"),
+        ("a trumpet on a stage", "a saxophone on a stage"),
+        ("a tractor in a field", "a combine harvester in a field"),
+        ("a laptop on a cafe table", "a tablet on a cafe table"),
+        ("a kite in the sky", "a drone in the sky"),
+        ("a lighthouse on a cliff", "a water tower on a hill"),
+        ("a windmill in a field", "a water wheel on a stream"),
+        ("a sunhat on a beach towel", "a snorkel mask on a beach towel"),
+        ("a garden gnome by a flowerbed", "a stone statue by a flowerbed"),
+        ("a snowman in a garden", "a scarecrow in a field"),
+        ("a mailbox by a front door", "a doorbell by a front door"),
+        ("a basketball hoop on a court", "a tennis net on a court"),
+        ("a vintage typewriter on a desk", "a vintage telephone on a desk"),
+        ("an easel with a canvas in a studio", "a drawing table in a studio"),
+        ("a barrow full of apples in an orchard", "a ladder leaning on an apple tree in an orchard"),
+        ("a buoy floating in the sea", "a rubber ring floating in the sea"),
+        ("a watering can in a garden", "a garden hose in a garden"),
+        ("a pumpkin on a porch step", "a lantern on a porch step"),
+        ("a pair of glasses on a book", "a pen on a book"),
+        ("a ship model in a bottle", "a message in a bottle"),
+        ("an hourglass on a mantelpiece", "a candle on a mantelpiece"),
+        ("a compass on a map", "a magnifying glass on a map"),
+        ("a microscope on a lab bench", "a telescope on a lab bench"),
+        ("a sewing machine on a table", "a loom on a table"),
+        ("a mortar and pestle on a counter", "a blender on a counter"),
+        ("a potted cactus on a windowsill", "a potted succulent on a windowsill"),
+        ("a globe on a teacher's desk", "a chalkboard eraser on a teacher's desk"),
+        ("a snowboard on a ski rack", "a pair of skis on a ski rack"),
+    ],
+}
+
+
+SEMANTIC_CATEGORIES = list(SEMANTIC_PROMPTS.keys())
+
+
+def generate_with_qwen(hf_token: str, n_pairs: int = 50,
+                       model: str = "Qwen/Qwen3-32B",
+                       max_retries: int = 3) -> dict:
+    """Generate semantic contrast pairs using a Qwen model via HF Inference API."""
+    from huggingface_hub import InferenceClient  # type: ignore
+    import time
+
+    os.makedirs("./models/huggingface", exist_ok=True)
+    os.environ.setdefault("HF_HOME", os.path.abspath("./models/huggingface"))
+
+    client = InferenceClient(token=hf_token, timeout=120)
+    short_name = model.split("/")[-1]
+
+    result = {}
+    for cat in SEMANTIC_CATEGORIES:
+        print(f"  Generating '{cat}' pairs with {short_name}...")
+        user_msg = (
+            f"Generate {n_pairs} contrastive image prompt pairs for the semantic category '{cat}'.\n"
+            f"Each pair must differ ONLY in '{cat}', keeping all other details identical.\n"
+            f"Return ONLY a valid JSON array of {n_pairs} two-element arrays, no extra text.\n"
+            f"Example format: [[\"a red apple on a table\", \"a green apple on a table\"], ...]"
+        )
+
+        pairs = None
+        fatal_error = False
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": user_msg}],
+                    max_tokens=4096,
+                    temperature=0.7,
+                )
+                raw = response.choices[0].message.content.strip()
+                raw = re.sub(r"^```(?:json)?\s*", "", raw)
+                raw = re.sub(r"\s*```$", "", raw)
+
+                parsed = json.loads(raw)
+                pairs = [
+                    (str(a), str(b)) for a, b in parsed
+                    if len(a) > 0 and len(b) > 0
+                ][:n_pairs]
+
+                if len(pairs) < n_pairs:
+                    print(f"    Only got {len(pairs)}/{n_pairs} pairs, filling rest from built-in.")
+                    pairs += SEMANTIC_PROMPTS[cat][len(pairs):n_pairs]
+                break
+
+            except Exception as e:
+                err_str = str(e)
+                # 4xx client errors (except 429 rate-limit) are not retryable
+                is_client_error = any(
+                    f"{code} " in err_str or f"{code}\n" in err_str
+                    for code in range(400, 500)
+                    if code != 429
+                )
+                if is_client_error:
+                    print(f"    Fatal API error for '{cat}': {e}")
+                    print("    Stopping Qwen generation — falling back to built-in pairs for all remaining categories.")
+                    fatal_error = True
+                    break
+
+                wait = 15 * attempt
+                if attempt < max_retries:
+                    print(f"    Attempt {attempt}/{max_retries} failed: {e}. Retrying in {wait}s...")
+                    time.sleep(wait)
+                else:
+                    print(f"    All {max_retries} attempts failed for '{cat}'. Using built-in pairs.")
+
+        result[cat] = pairs if pairs is not None else SEMANTIC_PROMPTS[cat]
+
+        if fatal_error:
+            # Fill remaining categories with built-in pairs without attempting API calls
+            remaining = SEMANTIC_CATEGORIES[SEMANTIC_CATEGORIES.index(cat) + 1:]
+            for rem_cat in remaining:
+                result[rem_cat] = SEMANTIC_PROMPTS[rem_cat]
+            break
+
+    return result
+
+
+def generate_with_ollama(n_pairs: int = 50,
+                         model: str = "qwen2.5:7b",
+                         host: str = "http://localhost:11434") -> dict:
+    """Generate semantic contrast pairs using a locally running Ollama model."""
+    import requests
+
+    url = f"{host.rstrip('/')}/api/chat"
+    short_name = model
+
+    # Verify Ollama is reachable before starting
+    try:
+        requests.get(f"{host.rstrip('/')}/api/tags", timeout=5)
+    except Exception:
+        raise RuntimeError(
+            f"Cannot reach Ollama at {host}.\n"
+            "Make sure Ollama is running: https://ollama.com\n"
+            f"Then pull the model:  ollama pull {model}"
+        )
+
+    result = {}
+    for cat in SEMANTIC_CATEGORIES:
+        print(f"  Generating '{cat}' pairs with {short_name}...")
+        user_msg = (
+            f"Generate {n_pairs} contrastive image prompt pairs for the semantic category '{cat}'.\n"
+            f"Each pair must differ ONLY in '{cat}', keeping all other details identical.\n"
+            f"Return ONLY a valid JSON array of {n_pairs} two-element arrays, no extra text.\n"
+            f"Example format: [[\"a red apple on a table\", \"a green apple on a table\"], ...]"
+        )
+
+        try:
+            resp = requests.post(url, json={
+                "model": model,
+                "messages": [{"role": "user", "content": user_msg}],
+                "stream": False,
+                "options": {"temperature": 0.7},
+            }, timeout=300)
+            resp.raise_for_status()
+
+            raw = resp.json()["message"]["content"].strip()
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+
+            parsed = json.loads(raw)
+            pairs = [
+                (str(a), str(b)) for a, b in parsed
+                if len(a) > 0 and len(b) > 0
+            ][:n_pairs]
+
+            if len(pairs) < n_pairs:
+                print(f"    Only got {len(pairs)}/{n_pairs} pairs, filling rest from built-in.")
+                pairs += SEMANTIC_PROMPTS[cat][len(pairs):n_pairs]
+
+            result[cat] = pairs
+
+        except Exception as e:
+            print(f"    Ollama generation failed for '{cat}': {e}. Using built-in pairs.")
+            result[cat] = SEMANTIC_PROMPTS[cat]
+
+    return result
+
+
+def generate_with_openai(api_key: str) -> list:
+    """Use OpenAI to generate 64 prompts (8 per category)."""
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key)
+
+    all_prompts = []
+    categories = list(BUILTIN_PROMPTS.keys())
+
+    for cat in categories:
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Generate 8 diverse, highly descriptive text-to-image prompts "
+                    f"in the category '{cat}'. Each prompt should vividly describe "
+                    f"a scene and be 10-20 words. Return as a JSON array of strings only."
+                )
+            }],
+            response_format={"type": "json_object"},
+        )
+        import json as _json
+        data = _json.loads(resp.choices[0].message.content)
+        prompts = list(data.values())[0] if isinstance(data, dict) else data
+        all_prompts.extend(prompts[:8])
+
+    return all_prompts
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--openai_key", type=str, default=None,
+                        help="OpenAI API key — generates vitality prompts via GPT-4o-mini")
+    parser.add_argument("--qwen", action="store_true",
+                        help="Generate semantic contrast pairs using a Qwen model via HF Inference API")
+    parser.add_argument("--qwen_model", type=str, default="Qwen/Qwen3-32B",
+                        help="HF model ID to use with --qwen (default: Qwen/Qwen3-32B)")
+    parser.add_argument("--hf_token", type=str, default=os.environ.get("HF_TOKEN"),
+                        help="HuggingFace token (required with --qwen; falls back to $HF_TOKEN)")
+    parser.add_argument("--ollama", action="store_true",
+                        help="Generate semantic contrast pairs using a locally running Ollama model")
+    parser.add_argument("--ollama_model", type=str, default="qwen2.5:7b",
+                        help="Ollama model name to use with --ollama (default: qwen2.5:7b)")
+    parser.add_argument("--ollama_host", type=str, default="http://localhost:11434",
+                        help="Ollama server URL (default: http://localhost:11434)")
+    parser.add_argument("--n_pairs", type=int, default=50,
+                        help="Number of contrast pairs per category to generate (default 50)")
+    args = parser.parse_args()
+
+    os.makedirs("prompts", exist_ok=True)
+
+    # --- Vitality prompts ---
+    if args.openai_key:
+        print("Generating vitality prompts via OpenAI...")
+        flat_prompts = generate_with_openai(args.openai_key)
+    else:
+        print("Using built-in vitality prompt set (pass --openai_key to generate via GPT-4o-mini).")
+        flat_prompts = [p for prompts in BUILTIN_PROMPTS.values() for p in prompts]
+
+    with open("prompts/vitality_prompts.json", "w") as f:
+        json.dump(flat_prompts, f, indent=2)
+    print(f"Saved {len(flat_prompts)} prompts → prompts/vitality_prompts.json")
+
+    # --- Semantic contrast prompts ---
+    if args.ollama:
+        print(f"Generating semantic contrast pairs via Ollama ({args.ollama_model})...")
+        semantic = generate_with_ollama(n_pairs=args.n_pairs, model=args.ollama_model, host=args.ollama_host)
+    elif args.qwen:
+        if not args.hf_token:
+            raise ValueError("--qwen requires a HuggingFace token. Pass --hf_token or set $HF_TOKEN.")
+        print(f"Generating semantic contrast pairs via {args.qwen_model}...")
+        semantic = generate_with_qwen(args.hf_token, n_pairs=args.n_pairs, model=args.qwen_model)
+    else:
+        print("Using built-in semantic contrast pairs (pass --ollama or --qwen --hf_token to generate via LLM).")
+        semantic = SEMANTIC_PROMPTS
+
+    with open("prompts/semantic_prompts.json", "w") as f:
+        json.dump(semantic, f, indent=2)
+    print(f"Saved semantic contrast pairs → prompts/semantic_prompts.json")
+
+
+if __name__ == "__main__":
+    main()

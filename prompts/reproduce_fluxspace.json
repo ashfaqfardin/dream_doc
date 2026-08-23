@@ -1,0 +1,57 @@
+{
+  "comment": "Exact hyperparameters from the official FluxSpace demo notebook (gemlab-vt/FluxSpace). max_sequence_length=256 matches the demo; seed is per-run.",
+
+  "global": {
+    "model_path": "black-forest-labs/FLUX.1-schnell",
+    "n_steps": 4,
+    "guidance_scale": 3.5,
+    "height": 1024,
+    "width": 1024,
+    "max_sequence_length": 256,
+    "edit_stop_iter": null
+  },
+
+  "runs": [
+    {
+      "name": "man_sunglasses",
+      "seed": 10,
+      "prompt": "a handsome man is walking on the street",
+      "edit_prompt": "sunglasses",
+      "edit_start_iter": 6,
+      "edit_global_scale": 0.8,
+      "edit_content_scale": 3,
+      "attention_threshold": 0.5
+    },
+    {
+      "name": "woman_smiling",
+      "seed": 0,
+      "prompt": "portrait photo of a blonde woman",
+      "edit_prompt": "smiling",
+      "edit_start_iter": 3,
+      "edit_global_scale": 0.5,
+      "edit_content_scale": 5,
+      "attention_threshold": 0.5
+    },
+    {
+      "name": "cupcake_sprinkles",
+      "seed": 42,
+      "prompt": "A delicious cupcake",
+      "edit_prompt": "sprinkles",
+      "edit_start_iter": 1,
+      "edit_global_scale": 0.5,
+      "edit_content_scale": 5,
+      "attention_threshold": 0.5
+    },
+    {
+      "name": "portrait_anime",
+      "seed": 99,
+      "prompt": "portrait of a person",
+      "edit_prompt": "anime style",
+      "edit_start_iter": 0,
+      "edit_stop_iter": 3,
+      "edit_global_scale": 0.8,
+      "edit_content_scale": 4.0,
+      "attention_threshold": 0.0
+    }
+  ]
+}

@@ -1,0 +1,181 @@
+{
+  "comment": "SVD style personalization on Infinity-8B. Prompts follow paper Appendix C.2: content + high-level style category.",
+
+  "global": {
+    "compare": true,
+    "cfg": 3.0,
+    "tau": 1.0,
+    "top_k": 600,
+    "top_p": 0.85,
+    "cfg_insertion_layer": -6,
+    "height": 1024,
+    "width": 1024,
+    "seed": 42
+  },
+
+  "runs": [
+    {
+      "comment": "── 3D Render ──",
+      "name": "pencil_3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A pencil, 3D Render",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "comment": "── Watercolor ──",
+      "name": "cat_watercolor",
+      "style_image": "inputs/watercolor_ref.png",
+      "prompt": "A cat, watercolor painting",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "flower_watercolor",
+      "style_image": "inputs/watercolor_ref.png",
+      "prompt": "A flower, watercolor painting",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "mountain_watercolor",
+      "style_image": "inputs/watercolor_ref.png",
+      "prompt": "A mountain, watercolor painting",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+
+    {
+      "comment": "── Oil Painting ──",
+      "name": "castle_oilpainting",
+      "style_image": "inputs/oilpainting_ref.jpg",
+      "prompt": "A castle, oil painting",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "horse_oilpainting",
+      "style_image": "inputs/oilpainting_ref.jpg",
+      "prompt": "A horse, oil painting",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "portrait_oilpainting",
+      "style_image": "inputs/oilpainting_ref.jpg",
+      "prompt": "A portrait, oil painting",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+
+    {
+      "comment": "── 3D Render ──",
+      "name": "robot_3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A robot, 3D Render",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "car_3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A car, 3D Render",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "dragon_3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A dragon, 3D Render",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+
+    {
+      "comment": "── Cartoon 3D ──",
+      "name": "fox_cartoon3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A fox, 3d cartoon",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "bear_cartoon3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A bear, 3d cartoon",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "bird_cartoon3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A bird, 3d cartoon",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+
+    {
+      "comment": "── Drawing ──",
+      "name": "cat_drawing",
+      "style_image": "inputs/drawing_ref.png",
+      "prompt": "A cat, kid crayon drawing",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "house_drawing",
+      "style_image": "inputs/drawing_ref.png",
+      "prompt": "A house, kid crayon drawing",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "tree_drawing",
+      "style_image": "inputs/drawing_ref.png",
+      "prompt": "A tree, kid crayon drawing",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    },
+    {
+      "name": "pickup_truck_drawing",
+      "style_image": "inputs/drawing_ref.png",
+      "prompt": "A pickup truck, kid crayon drawing",
+      "pfb_alpha": 1.0,
+      "pfb_step": 3,
+      "sac_steps": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "generation_steps": 12
+    }
+  ]
+}

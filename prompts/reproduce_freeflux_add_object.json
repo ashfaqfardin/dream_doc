@@ -1,0 +1,137 @@
+{
+  "comment": "Demo runs for FreeFlux add-object editing benchmark. Each example performs a single object addition while keeping the original scene unchanged.",
+
+  "global": {
+    "model_path": "black-forest-labs/FLUX.1-schnell",
+    "n_steps": 4,
+    "guidance_scale": 3.5,
+    "height": 1024,
+    "width": 1024,
+    "max_sequence_length": 512,
+    "derive_step": 7,
+    "seed": 0
+  },
+
+  "runs": [
+    {
+      "name": "dog_ball_generated",
+      "source_prompt": "a dog sitting on grass",
+      "target_prompt": "a dog sitting on grass with a red ball near it",
+      "added_word": "ball"
+    },
+    {
+      "name": "cat_toy_generated",
+      "source_prompt": "a cat lying on a bed",
+      "target_prompt": "a cat lying on a bed with a yellow toy beside it",
+      "added_word": "toy"
+    },
+    {
+      "name": "man_umbrella_generated",
+      "source_prompt": "a man standing on a street",
+      "target_prompt": "a man standing on a street holding a black umbrella",
+      "added_word": "umbrella"
+    },
+    {
+      "name": "woman_laptop_generated",
+      "source_prompt": "a woman sitting at a desk",
+      "target_prompt": "a woman sitting at a desk with a laptop in front of her",
+      "added_word": "laptop"
+    },
+    {
+      "name": "horse_rider_generated",
+      "source_prompt": "a horse running in a field",
+      "target_prompt": "a horse running in a field with a rider on its back",
+      "added_word": "rider"
+    },
+    {
+      "name": "bird_nest_generated",
+      "source_prompt": "a bird perched on a branch",
+      "target_prompt": "a bird perched on a branch with a nest beside it",
+      "added_word": "nest"
+    },
+    {
+      "name": "car_bicycle_generated",
+      "source_prompt": "a car parked in a driveway",
+      "target_prompt": "a car parked in a driveway with a bicycle next to it",
+      "added_word": "bicycle"
+    },
+    {
+      "name": "house_fence_generated",
+      "source_prompt": "a house in the countryside",
+      "target_prompt": "a house in the countryside with a wooden fence around it",
+      "added_word": "fence"
+    },
+    {
+      "name": "boat_fisherman_generated",
+      "source_prompt": "a boat floating on a lake",
+      "target_prompt": "a boat floating on a lake with a fisherman inside",
+      "added_word": "fisherman"
+    },
+    {
+      "name": "child_balloon_generated",
+      "source_prompt": "a child playing in a park",
+      "target_prompt": "a child playing in a park holding a red balloon",
+      "added_word": "balloon"
+    },
+    {
+      "name": "coffee_cookie_generated",
+      "source_prompt": "a cup of coffee on a table",
+      "target_prompt": "a cup of coffee on a table with a chocolate cookie beside it",
+      "added_word": "cookie"
+    },
+    {
+      "name": "bicycle_basket_generated",
+      "source_prompt": "a bicycle leaning against a wall",
+      "target_prompt": "a bicycle leaning against a wall with a basket attached to the front",
+      "added_word": "basket"
+    },
+    {
+      "name": "laptop_mouse_generated",
+      "source_prompt": "a laptop on a desk",
+      "target_prompt": "a laptop on a desk with a wireless mouse beside it",
+      "added_word": "mouse"
+    },
+    {
+      "name": "train_passengers_generated",
+      "source_prompt": "a train at a station",
+      "target_prompt": "a train at a station with passengers waiting on the platform",
+      "added_word": "passengers"
+    },
+    {
+      "name": "castle_flag_generated",
+      "source_prompt": "a castle on a hill",
+      "target_prompt": "a castle on a hill with a flag flying from the tallest tower",
+      "added_word": "flag"
+    },
+    {
+      "name": "tree_swing_generated",
+      "source_prompt": "a tree in a field",
+      "target_prompt": "a tree in a field with a wooden swing hanging from a branch",
+      "added_word": "swing"
+    },
+    {
+      "name": "sofa_cushions_generated",
+      "source_prompt": "a sofa in a living room",
+      "target_prompt": "a sofa in a living room with colorful cushions on it",
+      "added_word": "cushions"
+    },
+    {
+      "name": "mountain_cabin_generated",
+      "source_prompt": "a mountain landscape",
+      "target_prompt": "a mountain landscape with a small cabin near the base",
+      "added_word": "cabin"
+    },
+    {
+      "name": "beach_umbrella_generated",
+      "source_prompt": "a beach scene",
+      "target_prompt": "a beach scene with a colorful beach umbrella on the sand",
+      "added_word": "umbrella"
+    },
+    {
+      "name": "robot_cube_generated",
+      "source_prompt": "a robot standing in a room",
+      "target_prompt": "a robot standing in a room holding a glowing blue cube",
+      "added_word": "cube"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "name":        "bicycle",
+    "sketch":      "sketch_bicycle.png",
+    "description": "yellow mountain bicycle",
+    "prompt": "Add the yellow mountain bicycle shown in the second reference image to the room. Place it leaning against the left wall beside the sofa. Match its exact color, frame shape, and wheels from the reference. Keep the rest of the room completely unchanged."
+  },
+  {
+    "name":        "vase",
+    "sketch":      "sketch_vase.png",
+    "description": "white ceramic vase with flowers",
+    "prompt": "Add the white ceramic vase with flowers shown in the second reference image onto the wooden coffee table. Center it on the table. Match its exact shape, color, and flower arrangement from the reference. Keep the rest of the room completely unchanged."
+  },
+  {
+    "name":        "ball",
+    "sketch":      "sketch_ball.png",
+    "description": "yellow rubber ball",
+    "prompt": "Add the yellow rubber ball shown in the second reference image to the right corner of the room next to the sofa. Place it resting on the floor. Match its exact color and size from the reference. Keep the rest of the room completely unchanged."
+  }
+]

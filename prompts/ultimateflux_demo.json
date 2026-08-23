@@ -1,0 +1,183 @@
+{
+  "comment": "UltimateFlux demo runs covering all 6 implemented tasks on FLUX.1-dev. Layer sets are paper-validated (FreeFlux ICCV 2025 for TIER_A and add_object hotspots; all papers validated on FLUX.1-dev).",
+
+  "global": {
+    "model_path": "black-forest-labs/FLUX.1-dev",
+    "num_steps": 28,
+    "guidance_scale": 3.5,
+    "height": 1024,
+    "width": 1024,
+    "max_sequence_length": 512,
+    "seed": 42
+  },
+
+  "runs": [
+
+    {
+      "comment": "── Task 1: Non-rigid editing (num_steps=50 required — FreeFlux validated at 50 steps) ──",
+      "name": "bird_perch_to_fly",
+      "task": "non_rigid",
+      "source_prompt": "a bird perched on a branch",
+      "edit_prompt":   "a bird flying away from the branch",
+      "num_steps": 50
+    },
+    {
+      "name": "cat_sit_to_lie",
+      "task": "non_rigid",
+      "source_prompt": "a cat sitting on a wooden floor",
+      "edit_prompt":   "a cat lying down on a wooden floor",
+      "num_steps": 50
+    },
+    {
+      "name": "dog_standing_to_jumping",
+      "task": "non_rigid",
+      "source_prompt": "a golden retriever standing in a park",
+      "edit_prompt":   "a golden retriever jumping in a park",
+      "num_steps": 50,
+      "seed": 7
+    },
+
+    {
+      "comment": "── Task 2: Object addition ────────────────────────────────────────────",
+      "name": "table_add_vase",
+      "task": "object_add",
+      "source_prompt": "a wooden dining table in a bright room",
+      "edit_prompt":   "a wooden dining table with a vase of flowers in a bright room",
+      "added_word": "vase",
+      "inject_steps_frac": [0.0, 1.0],
+      "derive_step": 7,
+      "seed": 50
+    },
+    {
+      "name": "park_bench_add_dog",
+      "task": "object_add",
+      "source_prompt": "a park bench surrounded by trees",
+      "edit_prompt":   "a park bench with a dog sitting next to it surrounded by trees",
+      "added_word": "dog",
+      "inject_steps_frac": [0.0, 1.0],
+      "derive_step": 7,
+      "seed": 55
+    },
+
+    {
+      "comment": "── Task 3: Object replacement ─────────────────────────────────────────",
+      "name": "apple_to_orange",
+      "task": "object_replace",
+      "source_prompt": "a red apple on a wooden table",
+      "edit_prompt":   "an orange on a wooden table",
+      "inject_steps_frac": [0.0, 1.0],
+      "seed": 10
+    },
+    {
+      "name": "wooden_chair_to_metal",
+      "task": "object_replace",
+      "source_prompt": "a wooden chair in a bright room",
+      "edit_prompt":   "a metal chair in a bright room",
+      "inject_steps_frac": [0.0, 1.0],
+      "seed": 15
+    },
+
+    {
+      "comment": "── Task 4: Background replacement ─────────────────────────────────────",
+      "name": "cat_forest_to_beach",
+      "task": "bg_replace",
+      "source_prompt": "a cat sitting in a forest",
+      "edit_prompt":   "a cat sitting on a sunny beach",
+      "seed": 20
+    },
+    {
+      "name": "dog_park_to_city",
+      "task": "bg_replace",
+      "source_prompt": "a dog standing in a park",
+      "edit_prompt":   "a dog standing on a city street",
+      "seed": 25
+    },
+
+    {
+      "comment": "── Task 5: Fine-grained attribute editing ──────────────────────────────",
+      "name": "man_add_glasses",
+      "task": "attr_edit",
+      "source_prompt": "a portrait photo of a man",
+      "edit_prompt":   "a portrait photo of a man wearing eyeglasses",
+      "inject_steps_frac": [0.0, 1.0],
+      "seed": 30
+    },
+    {
+      "comment": "Kontext-style colour editing (KontextColorPolicy). SAC in all 19 double-stream blocks: edit image-token Q and K replaced with source Q and K — locks face/object spatial structure. Text Q/K stay from edit branch so edit prompt conditions V freely. Single-stream blocks (19-56) run with no injection — edit text drives colour. Uses generate_dual_branch.",
+      "name": "woman_hair_color",
+      "task": "attr_edit",
+      "source_prompt": "a woman with black hair",
+      "edit_prompt":   "a woman with blonde hair",
+      "inject_layers": "color",
+      "seed": 35
+    },
+    {
+      "name": "car_color_change",
+      "task": "attr_edit",
+      "source_prompt": "a red sports car on a road",
+      "edit_prompt":   "a blue sports car on a road",
+      "inject_layers": "color",
+      "seed": 40
+    },
+    {
+      "name": "dog_breed_shape",
+      "task": "attr_edit",
+      "source_prompt": "a labrador sitting on grass",
+      "edit_prompt":   "a husky sitting on grass",
+      "inject_layers": "tier_a",
+      "inject_steps_frac": [0.0, 1.0],
+      "seed": 45
+    },
+
+    {
+      "comment": "── Task 7: Style personalization ───────────────────────────────────────",
+      "name": "cat_watercolor",
+      "task": "style",
+      "prompt": "A cat, watercolor painting",
+      "style_image": "inputs/watercolor_ref.png",
+      "pfb_alpha": 1.0,
+      "seed": 42
+    },
+    {
+      "name": "flower_watercolor",
+      "task": "style",
+      "prompt": "A flower, watercolor painting",
+      "style_image": "inputs/watercolor_ref.png",
+      "pfb_alpha": 1.0,
+      "seed": 42
+    },
+    {
+      "name": "castle_oilpainting",
+      "task": "style",
+      "prompt": "A castle, oil painting",
+      "style_image": "inputs/oilpainting_ref.jpg",
+      "pfb_alpha": 1.0,
+      "seed": 42
+    },
+    {
+      "name": "robot_3d",
+      "task": "style",
+      "prompt": "A robot, 3D render",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "pfb_alpha": 1.0,
+      "seed": 42
+    },
+    {
+      "name": "fox_cartoon",
+      "task": "style",
+      "prompt": "A fox, cartoon illustration",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "pfb_alpha": 1.0,
+      "seed": 42
+    },
+    {
+      "name": "cat_crayon_drawing",
+      "task": "style",
+      "prompt": "A cat, kid crayon drawing",
+      "style_image": "inputs/drawing_ref.png",
+      "pfb_alpha": 1.0,
+      "seed": 42
+    }
+
+  ]
+}

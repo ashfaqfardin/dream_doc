@@ -1,0 +1,50 @@
+{
+  "comment": "Demo runs for FreeFlux bg-replace editing (ICCV 2025, wtybest/FreeFlux). bg_replace generates the source image from scratch (no real-image input). fg_mask_mode=auto uses cross-attention + SAM2 auto-points.",
+
+  "global": {
+    "model_path": "black-forest-labs/FLUX.1-schnell",
+    "n_steps": 4,
+    "guidance_scale": 3.5,
+    "height": 1024,
+    "width": 1024,
+    "max_sequence_length": 512,
+    "seed": 2,
+    "fg_mask_mode": "auto",
+    "shift": [0, 0],
+    "sam2_model": "facebook/sam2-hiera-large"
+  },
+
+  "runs": [
+    {
+      "name": "car_snowing",
+      "source_prompt": "A red sports car parked on a dry road",
+      "target_prompt": "A snowing day with heavy snowfall",
+      "foreground_word": "car"
+    },
+    {
+      "name": "car_sunset",
+      "source_prompt": "A red sports car parked on a road",
+      "target_prompt": "A golden sunset highway",
+      "foreground_word": "car"
+    },
+    {
+      "name": "dog_beach",
+      "source_prompt": "A yellow Labrador dog sitting on grass",
+      "target_prompt": "A sandy beach with ocean waves",
+      "foreground_word": "dog"
+    },
+    {
+      "name": "cat_garden",
+      "source_prompt": "A cat sitting on a wooden floor indoors",
+      "target_prompt": "A sunny garden with flowers",
+      "foreground_word": "cat"
+    },
+    {
+      "name": "car_move",
+      "source_prompt": "A red sports car parked on a road",
+      "target_prompt": "A red sports car parked on a road",
+      "foreground_word": "car",
+      "shift": [5, 5]
+    }
+  ]
+}

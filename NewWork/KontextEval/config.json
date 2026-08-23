@@ -1,0 +1,137 @@
+{
+  "_comment": "Multi-scene config for phase1_qwen_multistep_config.py. Add scenes freely. Each object needs a matching sketch in sketch_dir.",
+
+  "sketch_dir": "cherry_on_top_exp/NewWork/KontextEval/inputs",
+
+  "scenes": [
+    {
+      "id": "scene_001",
+      "description": "Minimalist living room",
+      "scene_prompt": "A minimalist living room with smooth hardwood parquet floors, matte white painted walls, one large rectangular window on the far wall with soft natural daylight. High ceilings. Completely empty room, no furniture, no objects. Photorealistic architectural interior photography, 4K.",
+      "objects": [
+        {
+          "name": "bicycle",
+          "sketch": "sketch_bicycle.png",
+          "description": "yellow mountain bicycle",
+          "add_prompt": "\nPicture 1 shows a room. Picture 2 shows a yellow mountain bicycle. Place the bicycle from Picture 2 into the room in Picture 1. Lean it against the right wall. Add a realistic contact shadow on the floor. Do not change any other part of the room."
+        },
+        {
+          "name": "vase",
+          "sketch": "sketch_vase.png",
+          "description": "black ceramic vase with white flowers",
+          "add_prompt": "\nPicture 1 shows a room. Picture 2 shows a black ceramic vase with white flowers. Place the vase from Picture 2 on the wooden floor in the left corner of the room in Picture 1. Add a soft contact shadow. Do not change any other part of the room."
+        },
+        {
+          "name": "ball",
+          "sketch": "sketch_ball.png",
+          "description": "yellow rubber ball",
+          "add_prompt": "\nPicture 1 shows a room. Picture 2 shows a yellow rubber ball. Place the ball from Picture 2 on the wooden floor near the center of Picture 1. Add a realistic contact shadow. Do not change any other part of the room."
+        }
+      ]
+    },
+
+    {
+      "id": "scene_002",
+      "description": "Cozy bedroom",
+      "scene_prompt": "A cozy bedroom with warm oak hardwood floors, light grey walls, a large window with white linen curtains letting in soft morning light. Completely empty room, no furniture, no objects. Photorealistic interior photography, warm ambient lighting, 4K.",
+      "objects": [
+        {
+          "name": "bicycle",
+          "sketch": "sketch_bicycle.png",
+          "description": "yellow mountain bicycle",
+          "add_prompt": "\nPicture 1 shows a bedroom. Picture 2 shows a yellow mountain bicycle. Place the bicycle from Picture 2 against the left wall of the bedroom in Picture 1. Add a shadow on the floor. Do not change any other part of the room."
+        },
+        {
+          "name": "vase",
+          "sketch": "sketch_vase.png",
+          "description": "black ceramic vase with white flowers",
+          "add_prompt": "\nPicture 1 shows a bedroom. Picture 2 shows a black ceramic vase with white flowers. Place the vase from Picture 2 on the floor near the window in Picture 1. Do not change any other part of the room."
+        },
+        {
+          "name": "ball",
+          "sketch": "sketch_ball.png",
+          "description": "yellow rubber ball",
+          "add_prompt": "\nPicture 1 shows a bedroom. Picture 2 shows a yellow rubber ball. Place the ball on the floor in the foreground of Picture 1. Add a contact shadow. Do not change any other part of the room."
+        }
+      ]
+    },
+
+    {
+      "id": "scene_003",
+      "description": "Modern studio apartment",
+      "scene_prompt": "A modern studio apartment interior with polished concrete floors, exposed brick wall on the left, white walls elsewhere, large industrial-style metal windows with natural light. Completely empty. Photorealistic, editorial interior photography, 4K.",
+      "objects": [
+        {
+          "name": "bicycle",
+          "sketch": "sketch_bicycle.png",
+          "description": "yellow mountain bicycle",
+          "add_prompt": "\nPicture 1 shows a studio apartment. Picture 2 shows a yellow mountain bicycle. Place the bicycle from Picture 2 against the brick wall in Picture 1. Add a realistic shadow on the concrete floor. Do not change any other part of the room."
+        },
+        {
+          "name": "vase",
+          "sketch": "sketch_vase.png",
+          "description": "black ceramic vase with white flowers",
+          "add_prompt": "\nPicture 1 shows a studio apartment. Picture 2 shows a black ceramic vase with white flowers. Place the vase from Picture 2 on the concrete floor in the corner of Picture 1. Do not change any other part of the room."
+        },
+        {
+          "name": "ball",
+          "sketch": "sketch_ball.png",
+          "description": "yellow rubber ball",
+          "add_prompt": "\nPicture 1 shows a studio apartment. Picture 2 shows a yellow rubber ball. Place the ball from Picture 2 on the concrete floor in the center-foreground of Picture 1. Add a contact shadow. Do not change any other part of the room."
+        }
+      ]
+    },
+
+    {
+      "id": "scene_004",
+      "description": "Sunlit home office",
+      "scene_prompt": "A sunlit home office with light maple hardwood floors, soft cream painted walls, and two tall windows with natural daylight. No desk, no furniture, completely empty room. Photorealistic interior photography, bright natural light, 4K.",
+      "objects": [
+        {
+          "name": "bicycle",
+          "sketch": "sketch_bicycle.png",
+          "description": "yellow mountain bicycle",
+          "add_prompt": "\nPicture 1 shows a home office. Picture 2 shows a yellow mountain bicycle. Place the bicycle from Picture 2 beside the window in Picture 1. Add a soft shadow on the floor. Do not change any other part of the room."
+        },
+        {
+          "name": "vase",
+          "sketch": "sketch_vase.png",
+          "description": "black ceramic vase with white flowers",
+          "add_prompt": "\nPicture 1 shows a home office. Picture 2 shows a black ceramic vase with white flowers. Place the vase on the floor near the right wall in Picture 1. Do not change any other part of the room."
+        },
+        {
+          "name": "ball",
+          "sketch": "sketch_ball.png",
+          "description": "yellow rubber ball",
+          "add_prompt": "\nPicture 1 shows a home office. Picture 2 shows a yellow rubber ball. Place the ball on the floor in Picture 1, slightly off-center. Add a contact shadow. Do not change any other part of the room."
+        }
+      ]
+    },
+
+    {
+      "id": "scene_005",
+      "description": "Open-plan kitchen-diner",
+      "scene_prompt": "An open-plan kitchen-diner with large format white tile floors, white cabinetry visible on one wall, stainless steel accents, and a sliding glass door leading to a garden. Completely empty — no appliances on counters, no furniture. Photorealistic, clean interior photography, 4K.",
+      "objects": [
+        {
+          "name": "bicycle",
+          "sketch": "sketch_bicycle.png",
+          "description": "yellow mountain bicycle",
+          "add_prompt": "\nPicture 1 shows a kitchen-diner. Picture 2 shows a yellow mountain bicycle. Place the bicycle from Picture 2 near the sliding glass door in Picture 1. Add a shadow on the tile floor. Do not change any other part of the room."
+        },
+        {
+          "name": "vase",
+          "sketch": "sketch_vase.png",
+          "description": "black ceramic vase with white flowers",
+          "add_prompt": "\nPicture 1 shows a kitchen-diner. Picture 2 shows a black ceramic vase with white flowers. Place the vase on the tile floor beside the kitchen counter in Picture 1. Do not change any other part of the room."
+        },
+        {
+          "name": "ball",
+          "sketch": "sketch_ball.png",
+          "description": "yellow rubber ball",
+          "add_prompt": "\nPicture 1 shows a kitchen-diner. Picture 2 shows a yellow rubber ball. Place the ball on the tile floor in the center of Picture 1. Add a contact shadow. Do not change any other part of the room."
+        }
+      ]
+    }
+  ]
+}

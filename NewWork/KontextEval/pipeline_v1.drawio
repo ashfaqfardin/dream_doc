@@ -1,0 +1,174 @@
+<mxfile host="65bd71144e">
+    <diagram id="xYCkUTi-b6q6232ndZ86" name="Page-1">
+        <mxGraphModel dx="108" dy="413" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="pipeline-v1" name="phase1_sketch — Pipeline">
+        <mxGraphModel dx="2248" dy="413" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="900" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="100" value="LEGEND" style="text;html=1;strokeColor=none;fillColor=none;fontStyle=1;fontSize=11;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="760" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="101" value="Neural model (FLUX / VLM)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="785" width="180" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="102" value="Classical algorithm" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="785" width="150" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="103" value="Data / Image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontColor=#333;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="370" y="785" width="120" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="104" value="Input / Output" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="785" width="120" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="105" value="Decision" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="630" y="780" width="100" height="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="10" value="STAGE A  —  Sketch → Object  (runs once per object before Stage B)" style="swimlane;fontStyle=1;fontSize=12;fillColor=#f0f4ff;strokeColor=#6680cc;startSize=32;swimlaneLine=1;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="20" width="290" height="720" as="geometry"/>
+                </mxCell>
+                <mxCell id="11" value="✏  Hand-drawn Sketch&#xa;{name}.png  (bicycle / vase / ball)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=10;" parent="10" vertex="1">
+                    <mxGeometry x="25" y="45" width="240" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="FLUX.1-Kontext-dev + LoRA&#xa;gokaygokay/Sketch-to-Image-Kontext-Dev-LoRA&#xa;prompt: &quot;Convert this sketch into real life version,&#xa;follow exact structure. {desc} on white bg.&quot;&#xa;28 steps, guidance=4.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="10" vertex="1">
+                    <mxGeometry x="25" y="145" width="240" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="13" value="Object Image  (studio-lit, white background)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontColor=#333;fontSize=10;" parent="10" vertex="1">
+                    <mxGeometry x="25" y="285" width="240" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="14" value="RMBG-2.0  (briaai, BiRefNet)&#xa;Semantic foreground segmentation&#xa;works on white vase on white bg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="10" vertex="1">
+                    <mxGeometry x="25" y="378" width="240" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="15" value="obj_img  +  obj_mask (bool H×W)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontColor=#333;fontStyle=1;fontSize=10;" parent="10" vertex="1">
+                    <mxGeometry x="25" y="486" width="240" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="ea1" style="edgeStyle=orthogonalEdgeStyle;" parent="10" source="11" target="12" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ea2" style="edgeStyle=orthogonalEdgeStyle;" parent="10" source="12" target="13" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ea3" style="edgeStyle=orthogonalEdgeStyle;" parent="10" source="13" target="14" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ea4" style="edgeStyle=orthogonalEdgeStyle;" parent="10" source="14" target="15" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="20" value="STAGE B  —  Object → Scene  (sequential: each object sees all previous ones)" style="swimlane;fontStyle=1;fontSize=12;fillColor=#fff9f0;strokeColor=#e6a020;startSize=32;swimlaneLine=1;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="20" width="1540" height="720" as="geometry"/>
+                </mxCell>
+                <mxCell id="21" value="Current Scene&#xa;(starts = base; accumulates across objects)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=10;" parent="20" vertex="1">
+                    <mxGeometry x="25" y="45" width="200" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="22" value="① PROBE PASS&#xa;Kontext (28 steps, text prompt only)&#xa;run_standard(pipe, scene, prompt)&#xa;→ finds where object belongs in scene" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=9;" parent="20" vertex="1">
+                    <mxGeometry x="25" y="155" width="200" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="23" value="img_probe&#xa;correct placement&#xa;+ scene lighting" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" parent="20" vertex="1">
+                    <mxGeometry x="25" y="295" width="200" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="24" value="pixel_to_token_mask&#xa;probe vs current scene&#xa;→ target_clean (64×64 grid)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" parent="20" vertex="1">
+                    <mxGeometry x="25" y="450" width="200" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="25" value="--vlm_model&#xa;set?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=10;" parent="20" vertex="1">
+                    <mxGeometry x="288" y="293" width="148" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="26" value="Qwen2-VL-2B-Instruct  (on CPU)&#xa;sees: scene + obj_img&#xa;returns JSON: {cx, cy, w, h}&#xa;perspective + stability reasoning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="20" vertex="1">
+                    <mxGeometry x="263" y="138" width="200" height="85" as="geometry"/>
+                </mxCell>
+                <mxCell id="27" value="② Pixel BBox  (y1, y2, x1, x2)&#xa;token mask → probe path&#xa;vlm_placement_to_bbox → VLM path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontColor=#333;fontStyle=1;fontSize=9;" parent="20" vertex="1">
+                    <mxGeometry x="508" y="300" width="210" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="28" value="③ create_harmonized_composite&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;step 1 · LAB Luminance Transfer  (Reinhard 2001)&#xa;  extract L-channel from probe_region&#xa;  transfer mean+std → sketch obj (L only)&#xa;  object keeps real color; gets scene brightness&#xa;&#xa;step 2 · Poisson Seamless Clone  (Pérez, SIGGRAPH 2003)&#xa;  cv2.seamlessClone(NORMAL_CLONE)&#xa;  gradient-domain boundary → invisible seam" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=9;align=left;" parent="20" vertex="1">
+                    <mxGeometry x="768" y="248" width="300" height="175" as="geometry"/>
+                </mxCell>
+                <mxCell id="29" value="Rough Composite&#xa;luminance-matched&#xa;gradient-continuous boundary" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontColor=#333;fontSize=10;" parent="20" vertex="1">
+                    <mxGeometry x="1118" y="290" width="195" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="30" value="④ K/V Injection  (Kontext)&#xa;TIER_A layers [0,7,8,9,10,18,25,28,37,42,45,50,56]&#xa;strength=0.45,  cutoff=0.65&#xa;background locked → only shadows + fine seams added&#xa;(much less work vs strength=0.8 with raw paste)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=9;" parent="20" vertex="1">
+                    <mxGeometry x="1118" y="410" width="300" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="31" value="⑤ BG-Replace&#xa;hard pixel copy from original base&#xa;over all non-object token regions&#xa;→ zero background drift across steps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" parent="20" vertex="1">
+                    <mxGeometry x="1118" y="560" width="300" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="32" value="✓ Scene (step N)  →  next object sees this" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=10;" parent="20" vertex="1">
+                    <mxGeometry x="1168" y="690" width="200" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb1" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="21" target="22" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb2" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="22" target="23" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb3" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="23" target="24" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb4" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="23" target="25" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb5" value="yes" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" parent="20" source="25" target="26" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb6" value="no (probe mode)" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;" parent="20" source="24" target="27" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb7" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="26" target="27" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb8" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="27" target="28" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb9" value="lighting ref (probe_region)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;fontSize=9;" parent="20" source="23" target="28" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="125" y="590"/>
+                            <mxPoint x="918" y="590"/>
+                            <mxPoint x="918" y="423"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="eb10" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="28" target="29" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb11" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="29" target="30" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb12" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="30" target="31" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb13" style="edgeStyle=orthogonalEdgeStyle;" parent="20" source="31" target="32" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="eb14" value="next object" style="edgeStyle=orthogonalEdgeStyle;curved=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#9673a6;fontSize=9;dashed=1;" parent="20" source="32" target="21" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1268" y="720"/>
+                            <mxPoint x="15" y="720"/>
+                            <mxPoint x="15" y="72"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="ec1" value="obj_img + obj_mask" style="edgeStyle=elbowEdgeStyle;elbow=vertical;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#82b366;fontStyle=2;fontSize=9;strokeWidth=2;" parent="1" source="15" target="28" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="40" value="Saved: sk_{mode}_step{N}_{name}_probe.png" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=8;fontColor=#999;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="365" y="290" width="280" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="41" value="Saved: sk_{mode}_step{N}_{name}_rough.png" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=8;fontColor=#999;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="1110" y="420" width="280" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="42" value="Saved: sk_{mode}_step{N}_{name}_inject.png" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=8;fontColor=#999;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="1110" y="498" width="280" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="43" value="Saved: sk_{mode}_step{N}_{name}_result.png  →  KEY_lora_final.png" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=8;fontColor=#999;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="1110" y="628" width="380" height="16" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

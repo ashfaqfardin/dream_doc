@@ -1,0 +1,156 @@
+
+================================================================================
+     HOW TWO PROMPTS ARE PROCESSED IN FLUX  (StableFlow / FreeFlux general case)
+================================================================================
+
+
+NORMAL FLUX  (single prompt, batch = 1)
+────────────────────────────────────────
+
+  "A cat"
+      │
+      ▼
+  T5-XXL Encoder
+      │
+      ▼
+  text_embeds.shape = [1, seq_len, 4096]
+      │
+      ▼
+  noise.shape = [1, seq, 64]
+      │
+      ▼
+  FLUX Transformer  (57 layers)
+      │
+      ▼
+  output.shape = [1, seq, 64]
+      │
+      ▼
+  VAE Decode
+      │
+      ▼
+  one image
+
+
+================================================================================
+
+
+DUAL-BRANCH  (two prompts, batch = 2)
+──────────────────────────────────────
+
+  "A cat"               "A cat flying"
+      │                       │
+      ▼                       ▼
+  T5-XXL Encoder          T5-XXL Encoder
+      │                       │
+      ▼                       ▼
+  text_embeds[0]          text_embeds[1]
+  shape [1, seq, 4096]    shape [1, seq, 4096]
+      │                       │
+      └───────────┬───────────┘
+                  │  stack along batch dim
+                  ▼
+      text_embeds.shape = [2, seq, 4096]
+
+
+  ONE noise tensor, cloned:
+
+  randn(shape=[1, seq, 64])
+      │
+      clone × 2
+      │
+      ▼
+  latents.shape = [2, seq, 64]
+      │           │
+  branch 0    branch 1
+  "A cat"     "A cat flying"
+
+
+                  │
+                  ▼
+  ┌───────────────────────────────────────────┐
+  │  FLUX Transformer  (same weights)         │
+  │                                           │
+  │  hidden_states.shape = [2, seq, dim]      │
+  │         │                                 │
+  │     ┌───┴───┐                             │
+  │  item[0]  item[1]                         │
+  │  "A cat"  "A cat flying"                  │
+  │     │         │                           │
+  │  same weights, different text conditioning│
+  │     │         │                           │
+  │     Q[0]     Q[1]  ← driven by own prompt │
+  │     K[0]     K[1]                         │
+  │     V[0]     V[1]                         │
+  │                                           │
+  │   ← HERE the attention processor fires →  │
+  │                                           │
+  │     K[1] ← K[0]   (copy source routing)  │
+  │     V[1] ← V[0]   (copy source content)  │
+  │                                           │
+  └───────────────────────────────────────────┘
+                  │
+                  ▼
+  output.shape = [2, seq, 64]
+      │               │
+  branch 0         branch 1
+      │               │
+  VAE Decode       VAE Decode
+      │               │
+      ▼               ▼
+  source.png       edit.png
+
+
+================================================================================
+
+
+THE KEY INSIGHT
+────────────────
+
+  There is NO architectural change to FLUX.
+
+  Two things are used:
+
+  1.  Standard PyTorch batch dimension
+      ─────────────────────────────────
+      Passing prompt = ["A", "B"] to diffusers is identical to
+      generating 2 images at once. The transformer processes
+      both items with the same weights in a single forward pass.
+      Both items have their own text conditioning driving Q/K/V.
+
+  2.  Custom attention processor  (set_attn_processor)
+      ───────────────────────────────────────────────────
+      A standard HuggingFace hook that replaces the attention
+      computation in all layers. At injection layers it reads
+      K[0] and V[0] (source branch) and writes them into
+      K[1] and V[1] (edit branch) before attention is computed.
+
+      This is possible because both branches are in the same
+      tensor — the batch dimension puts them side by side.
+
+
+================================================================================
+
+
+WHY THE SAME INITIAL NOISE IS CRITICAL
+────────────────────────────────────────
+
+  DIFFERENT noise:
+
+    branch 0  →  cat forms top-left
+    branch 1  →  cat forms bottom-right
+
+    Injecting K[0] into branch 1 tells branch 1
+    to attend top-left. But branch 1's latent is
+    evolving bottom-right. They fight each other.
+    Result: blurry / incoherent.
+
+  SAME noise:
+
+    Both branches evolve the same spatial layout.
+    K[0] injected into branch 1 reinforces the
+    same spatial structure. Edit prompt steers
+    only the semantic content through Q and text.
+    Result: coherent edit with preserved structure.
+
+
+================================================================================

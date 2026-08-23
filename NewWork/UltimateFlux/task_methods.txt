@@ -1,0 +1,298 @@
+ULTIMATEFLUX — DETAILED METHOD DOCUMENTATION
+=============================================
+Model: FLUX.1-dev (Black Forest Labs)
+Architecture: 19 double-stream MM-DiT blocks (layers 0-18) +
+              38 single-stream blocks (layers 19-56) = 57 layers total.
+
+
+SHARED INFRASTRUCTURE: DUAL-BRANCH DENOISING
+---------------------------------------------
+All three tasks below use the same core mechanism called "dual-branch denoising"
+(B=2). Here is what that means:
+
+FLUX normally denoises a single latent z_T (pure noise) into a final image over
+N steps. In dual-branch mode, we run a BATCH of 2 latents simultaneously through
+the same transformer at every step:
+
+  Branch 0 (source):  conditioned on source_prompt  →  produces source.png
+  Branch 1 (edit):    conditioned on edit_prompt    →  produces edit.png
+
+Both branches start from the SAME initial latent z_T (same seed, same noise).
+Because they share the transformer forward pass at each step, we can intercept
+the attention tensors (Q, K, V) of both branches inside the same call and copy
+values from branch 0 into branch 1 before the attention is computed.
+
+This is the injection formula:
+  K_edit[tokens] ← K_src[tokens]     (locks SPATIAL ROUTING — where to look)
+  V_edit[tokens] ← V_src[tokens]     (locks CONTENT — what to see there)
+
+By selectively choosing WHICH layers to inject and WHICH tokens to inject, we
+control how much of the source structure, appearance, or background survives into
+the edit output.
+
+TIER_A layers — why they matter:
+  FLUX's attention layers are not equivalent. Layers with low or zero RoPE
+  (Rotary Position Encoding) frequency behave as content-similarity layers —
+  attention there is driven by WHAT tokens contain, not WHERE they are. These are
+  called TIER_A layers (13 total: {0,7,8,9,10,18,25,28,37,42,45,50,56}).
+  Injecting source K into TIER_A is safe: it transfers appearance without
+  spatially freezing the output. Injecting source K into non-TIER_A layers (high
+  RoPE frequency = position-dependent) would lock the spatial layout and prevent
+  any pose or structure change in the edit.
+
+
+===========================================================================
+TASK 1 — ATTRIBUTE EDITING  (run_attr_edit.sh)
+===========================================================================
+
+PROBLEM
+-------
+Given a source prompt ("a woman with red hair") and an edit prompt
+("a woman with black hair"), generate an edited image that makes only the
+requested change while keeping everything else (face, lighting, background,
+body pose) identical to what FLUX would have generated from the source prompt.
+
+APPROACH
+--------
+Standard B=2 dual-branch denoising. Both branches start from the same random
+noise z_T. Source branch runs source_prompt; edit branch runs edit_prompt.
+We inject source K (and optionally V) into the edit branch at selected layers,
+so the edit branch inherits the spatial structure of the source branch while
+its own text conditioning drives the desired attribute change through V.
+
+No real input image is involved — this is text-to-text editing. The "source"
+image is whatever FLUX would generate from source_prompt at this seed.
+
+STEP-BY-STEP WORKFLOW
+---------------------
+Step 1:  Sample random noise z_T (shape [1, 4096, 64] packed latent) from seed.
+Step 2:  Expand to B=2 batch: both branches start from the identical z_T.
+Step 3:  Run N denoising steps. At each step, inside the transformer:
+           - At the chosen injection layers: copy K[0] → K[1]
+             (and V[0] → V[1] if the mode calls for it)
+           - Everywhere else: both branches run independently.
+Step 4:  Decode branch 0 → source.png, decode branch 1 → edit.png.
+Step 5:  Save compare.png = [source | edit] side-by-side.
+
+INJECTION MODES (--inject_layers)
+----------------------------------
+The choice of which layers to inject controls the identity/editability tradeoff.
+
+  (default — omit --inject_layers)  →  _PRESERVE_LAYERS  (20 layers: TIER_A ∪ HOTSPOT)
+      Inject K+V at all 20 layers. Tightest possible identity lock.
+      Use when ADDING something that was not in the source at all:
+      glasses, a hat, a beard. The edit is entirely additive and the
+      source structure must be perfectly preserved.
+
+  --inject_layers double_stream  →  FineGrainedAttrPolicy, 19 MM-DiT layers, K only
+      Inject only K (not V) at all 19 double-stream blocks (0-18).
+      K locks spatial positions (what region attends to what region).
+      V stays edit-conditioned so the edit text ("blonde", "blue eyes") can
+      fully drive the colour/appearance change through value features.
+      The 38 single-stream blocks (19-56) are entirely free.
+      Use when colour change is weak with the default mode.
+
+  --inject_layers color  →  KontextColorPolicy  (Kontext-style colour editing)
+      Inject both Q and K of the image tokens (not text tokens) in all 19
+      double-stream blocks. Replacing Q and K together forces the edit branch
+      to compute attention identically to the source at every double-stream
+      block — this rigidly locks face geometry and object shape.
+      Text tokens keep their own Q and K so "blonde" / "blue" still conditions V.
+      Single-stream blocks (19-56): no injection at all.
+      Edit text drives colour through all 38 refinement blocks via V freely.
+      Optional --svd_alpha (default 0, disabled): at block 1, applies PFB
+      (Principal Feature Blending, SVD-based) to blend source structural
+      principal components into the edit residual for extra identity anchoring.
+
+  --inject_layers tier_a  →  FineGrainedAttrPolicy, 13 TIER_A layers, K+V
+      Inject K+V at only the 13 content-similarity layers.
+      Lighter structural lock than default. Appearance is preserved but
+      position/layout is more flexible.
+      Use for shape-linked edits where some layout change is acceptable
+      (changing dog breed, changing object category).
+
+KEY PARAMETERS
+--------------
+  --inject_layers     Which layer set to use (see above). Default: _PRESERVE_LAYERS.
+  --inject_steps_frac Start and end fraction of denoising steps for injection.
+                      Default (0.0, 1.0) = inject at all steps.
+                      Reduce end to allow more edit freedom in later steps.
+  --qk_steps_frac     (color mode) Window for double-stream Q+K injection.
+  --ss_q_steps_frac   (color mode) Window for single-stream Q injection (default 0.0-0.5).
+  --svd_alpha         (color mode) PFB strength. 0 = disabled (default).
+
+
+===========================================================================
+TASK 2 — BACKGROUND REPLACEMENT  (run_bg_replace.sh)
+===========================================================================
+
+PROBLEM
+-------
+Given a source prompt ("a cat sitting in a forest") and an edit prompt
+("a cat sitting on a sunny beach"), generate an image where the cat is
+preserved exactly (appearance, pose, position) but the background is
+completely regenerated to match the edit prompt.
+
+APPROACH
+--------
+B=2 dual-branch denoising with a foreground/background mask. The mask separates
+the foreground subject (cat) from the background. At each denoising step, only
+the BACKGROUND tokens of the edit branch have source K and V injected into them.
+The foreground tokens are left completely free, so the subject stays visually
+identical to what the source branch produces. The background is regenerated
+entirely by the edit text prompt.
+
+Note: This does NOT use latent compositing (pasting source latent patches into
+edit latent). Latent compositing was tried and caused visible artifacts — the
+source subject appeared as an overlay on top of the edit background because the
+source latent at any noise level still contains the full source image structure.
+The attention-injection approach avoids this: the edit branch naturally
+reconstructs the subject correctly because it attends to the same K,V as the
+source at those spatial positions.
+
+STEP-BY-STEP WORKFLOW
+---------------------
+Step 1:  Determine foreground mask (see Mask Derivation below).
+Step 2:  Sample random noise z_T from seed. Expand to B=2.
+Step 3:  Run N denoising steps. At each step, inside the transformer:
+           At every TIER_A layer:
+             - Background tokens of edit branch: K[1][bg] ← K[0][bg],
+                                                 V[1][bg] ← V[0][bg]
+             - Foreground tokens of edit branch: no injection (run freely)
+Step 4:  Decode branch 0 → source.png, decode branch 1 → edit.png.
+
+MASK DERIVATION  (priority order — first available wins)
+---------------------------------------------------------
+1. --fg_mask_image path/mask.png
+   User supplies a binary mask image (white = foreground, black = background).
+   Highest quality — use when the subject boundary needs to be precise.
+
+2. --use_sam2  (default when no mask is supplied)
+   SAM2 (Segment Anything Model 2, facebook/sam2-hiera-large) automatically
+   segments the foreground subject from a decoded intermediate latent during
+   denoising. No subject noun or user input required.
+   Requires: pip install sam2
+
+The mask is applied in latent space at token resolution (64×64 for 1024×1024
+images) and is dilated by a small margin to avoid hard boundary artifacts.
+
+KEY PARAMETERS
+--------------
+  --use_sam2          Enable SAM2 auto-segmentation (recommended when no mask).
+  --fg_mask_image     Path to hand-drawn binary foreground mask.
+  --sam2_model_id     HuggingFace model ID for SAM2 (default: facebook/sam2-hiera-large).
+  --save_intermediates Save per-step latent grids for debugging.
+
+
+===========================================================================
+TASK 3 — NON-RIGID EDITING  (run_non_rigid.sh)
+===========================================================================
+
+PROBLEM
+-------
+Given a source prompt ("a bird perched on a branch") and an edit prompt
+("a bird flying away from the branch"), generate an image where the bird's
+POSE changes (perched → flying) but its appearance (colour, feather texture,
+species) and the background are preserved as much as possible.
+
+This is harder than attribute editing because the change requires STRUCTURAL
+rearrangement of the subject — the bird's body must move into a new configuration
+— while appearance information must still transfer from the source denoising path.
+
+APPROACH
+--------
+B=2 dual-branch denoising with a three-zone injection scheme combining two
+published methods:
+
+  FreeFlux (ICCV 2025, arXiv:2502.17363):
+    Inject source K and V only at TIER_A layers (content-similarity, no RoPE).
+    At these layers the edit Q (from "bird flying") attends to source tokens
+    by content similarity rather than position — so appearance features transfer
+    while spatial layout can diverge. This is the core mechanism.
+    K is NEVER injected at non-TIER_A (position-dependent) layers because RoPE
+    in those layers encodes absolute spatial position; injecting source K there
+    would force the edit branch to attend to the same spatial grid as the source
+    and freeze the pose.
+
+  SynPS (CVPR 2026, arXiv:2512.14423):
+    The injected source K is re-encoded with a w-scaled RoPE before injection:
+        cos_w = w * cos_θ + (1 - w)
+        sin_w = w * sin_θ
+        K_injected = apply_rotary_emb(K_src_raw, (cos_w, sin_w))
+    When w=0: position information is stripped from K entirely. The edit Q
+    now attends to source tokens purely by content (colour, texture, shape
+    features) — colour and appearance transfer maximally.
+    When w=1: standard RoPE (identical to FreeFlux baseline, full spatial lock).
+    w is adapted per step based on an editing-measurement signal M_t:
+        M_t = mean over TIER_A layers of:
+              cosine_similarity(attn_output_img_src, attn_output_img_edit) /
+              cosine_similarity(attn_output_txt_src, attn_output_txt_edit)
+    M_t close to 1.0 means the edit branch is barely changing → under-editing
+    → set w=0 (more agnostic, stronger appearance retrieval).
+    M_t below threshold means branches have diverged enough → over-editing
+    → set w=1 (full lock to prevent identity collapse).
+    --static_w 0.0 disables the adaptive schedule and fixes w=0 throughout
+    (recommended for maximum colour preservation).
+
+STEP-BY-STEP WORKFLOW
+---------------------
+Step 1:  Determine foreground mask (see Mask Derivation below).
+Step 2:  Sample random noise z_T from seed. Expand to B=2.
+Step 3:  Run N denoising steps. At each step, inside the transformer:
+
+         THREE-ZONE injection at TIER_A layers:
+
+         Zone A — Background tokens, ALL TIER_A layers (0,7,8,9,10,18,25,28,37,42,45,50,56):
+           K_edit[bg] ← SynPS(K_src[bg], w)
+           V_edit[bg] ← V_src[bg]
+           Background appearance is fully locked to the source.
+
+         Zone B — Foreground tokens, MM-DiT pose layers {7,8,9,10,18}:
+           NO INJECTION.
+           These layers have peak shape/pose sensitivity (ablation from StableFlow).
+           Injecting here would freeze the subject's pose — exactly what we don't want.
+
+         Zone C — Foreground tokens, layer 0 only (MM-DiT identity):
+           K_edit[fg] ← SynPS(K_src[fg], w)
+           V_edit[fg] ← V_src[fg]
+           Layer 0 has the highest colour and object-identity sensitivity.
+           Anchors the subject's appearance at the most identity-critical layer.
+
+         Zone D — Foreground tokens, single-stream TIER_A layers {25,28,37,42,45,50,56}:
+           K_edit[fg] ← SynPS(K_src[fg], w)
+           V_edit[fg] ← V_src[fg]
+           These layers have low sensitivity (0.05-0.12). Pose is already committed
+           by the MM-DiT blocks. Safe to inject for colour/texture refinement.
+
+Step 4:  Compute editing-measurement M_t from this step's attention outputs.
+         Update w for the next step's injection.
+Step 5:  Decode branch 0 → source.png, decode branch 1 → edit.png.
+
+MASK DERIVATION  (priority order — first available wins)
+---------------------------------------------------------
+1. --fg_mask path/mask.png
+   User-supplied binary mask. Best quality.
+
+2. --subject_noun "bird"  (ConceptAttention, arXiv:2502.04320)
+   No external model. Uses FLUX's own attention at double-stream layers 10-17.
+   For each image token, computes how strongly it attends TO the concept word's
+   key vector (DAAM-style Q_img × K_concept logits), averaged over 20 denoising
+   steps. Top 35% of tokens by this saliency score → foreground mask.
+   Finds the named concept specifically (not just the largest or most-central
+   blob), so it handles off-centre or small subjects correctly.
+
+3. --use_sam2_nonrigid
+   SAM2 automatic segmentation fallback (same as bg_replace).
+   Requires: pip install sam2
+
+KEY PARAMETERS
+--------------
+  --subject_noun      Word identifying the subject for attention-based masking.
+  --static_w 0.0      Fix SynPS w=0 (maximum position-agnosticism). Recommended.
+  --m_min / --m_max   Editing-measurement thresholds for adaptive w (default 0.7/0.95).
+  --bg_dilate         Pixel dilation of foreground mask (default 6px, avoids edge artifacts).
+  --inject_steps_frac Denoising window for injection (default all steps 0.0-1.0).
+  --v_blend           Blend weight for source V at non-TIER_A layers (default 0.0).
+                      Can be raised slightly if appearance loss is severe (try 0.1-0.3).
+  --use_sam2_nonrigid Enable SAM2 segmentation fallback.
+  --save_intermediates Save per-step latent grids for debugging.

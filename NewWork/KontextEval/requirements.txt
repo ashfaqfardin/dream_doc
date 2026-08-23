@@ -1,0 +1,15 @@
+torch>=2.1
+diffusers>=0.31.0
+transformers>=4.44
+accelerate>=0.33
+sentencepiece
+protobuf
+Pillow>=9.5
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+lpips
+torchmetrics>=1.0
+open-clip-torch
+huggingface_hub
+tqdm

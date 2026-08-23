@@ -1,0 +1,38 @@
+{
+  "comment": "Demo runs for FreeFlux non-rigid editing (ICCV 2025, wtybest/FreeFlux). Both prompts share the same seeded random latents — no source image or inversion needed. n_steps=50 and layer_idx match the paper notebook.",
+
+  "global": {
+    "model_path": "black-forest-labs/FLUX.1-schnell",
+    "n_steps": 4,
+    "guidance_scale": 3.5,
+    "height": 1024,
+    "width": 1024,
+    "max_sequence_length": 512,
+    "seed": 2
+  },
+
+  "runs": [
+    {
+      "name": "bird_fly",
+      "source_prompt": "a bird perched on a branch",
+      "target_prompt": "a bird flying from the branch"
+    },
+    {
+      "name": "cat_lie_down",
+      "source_prompt": "a cat sitting on a wooden floor",
+      "target_prompt": "a cat lying down on a wooden floor"
+    },
+    {
+      "name": "dog_turn_head",
+      "source_prompt": "a yellow dog looking at the camera",
+      "target_prompt": "a yellow dog looking to the side",
+      "seed": 5
+    },
+    {
+      "name": "person_sitting_standing",
+      "source_prompt": "a person sitting on a chair",
+      "target_prompt": "a person standing up from a chair",
+      "seed": 0
+    }
+  ]
+}

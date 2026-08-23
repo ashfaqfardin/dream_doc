@@ -1,0 +1,12 @@
+# Core (required)
+diffusers>=0.32
+transformers
+accelerate
+torch
+pillow
+numpy
+
+# Optional — metrics.py and run_incremental_edit.py degrade gracefully
+# without these (never crash, see pipelineInc.md §9), but you lose:
+lpips        # LPIPS perceptual distance in Stage 6 drift metrics
+sam2         # SAM2 fallback mask derivation (DAAM saliency is the default)

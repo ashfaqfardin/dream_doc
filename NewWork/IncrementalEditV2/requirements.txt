@@ -1,0 +1,15 @@
+# Logic core (tested here, no GPU needed)
+numpy>=1.24
+scipy>=1.10
+
+# FLUX runtime (GPU environment) — pin diffusers; block/processor names vary by version
+torch>=2.1
+diffusers==0.31.0
+transformers>=4.44
+accelerate>=0.33
+sentencepiece
+protobuf
+Pillow>=9.5
+
+# Testing
+pytest>=7.0

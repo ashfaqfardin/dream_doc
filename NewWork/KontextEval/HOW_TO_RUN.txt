@@ -1,0 +1,404 @@
+================================================================
+FLUX.1-Kontext-dev Incremental Editing Pipeline
+How to Run Each Phase from Terminal (Google Colab / Linux)
+================================================================
+
+PREREQUISITES
+-------------
+- Google Colab with A100 GPU (80 GB VRAM)
+- Hugging Face account with FLUX.1-Kontext-dev access
+  → Request access at: https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev
+- Your HF token from: https://huggingface.co/settings/tokens
+
+
+----------------------------------------------------------------
+STEP 0 — ONE-TIME SETUP  (run once per Colab session)
+----------------------------------------------------------------
+
+# 1. Navigate to the project root
+cd /content/cherry_on_top_exp
+
+# 2. Install dependencies
+pip install -r NewWork/KontextEval/requirements.txt
+
+# 3. Set your HuggingFace token as a variable (avoids retyping)
+export HF_TOKEN=hf_YOUR_TOKEN_HERE
+
+# 4. (Optional) Set PYTHONPATH so imports resolve correctly
+export PYTHONPATH=/content/cherry_on_top_exp:$PYTHONPATH
+
+
+----------------------------------------------------------------
+PHASE 1 — Environment & Baseline (Chainwise Editing)
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Runs a 4-step chained editing sequence:
+    Step 0: Empty grey scene (base)
+    Step 1: Add a wooden chair         (input = step 0)
+    Step 2: Replace chair → iron chair (input = step 1)
+    Step 3: Change color → red         (input = step 2)
+    Step 4: Style → oil painting       (input = step 3)
+  Then verifies deterministic generation (same seed = same output).
+
+COMMAND:
+  python NewWork/KontextEval/phase1_baseline.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase1 \
+      --seed 42 \
+      --num_steps 30 \
+      --guidance 3.5 \
+      --size 768
+
+OUTPUT FILES (in results/phase1/):
+  step0_empty_scene.png
+  step1_add_wooden_chair.png
+  step2_replace_iron_chair.png
+  step3_change_chair_color.png
+  step4_style_change.png
+  deterministic_run_1.png
+  deterministic_run_2.png
+  full_chain.png          ← all 5 steps in one image
+  step1_compare.png       ← before/after for each step
+  step2_compare.png
+  step3_compare.png
+  step4_compare.png
+  step5_determinism.png
+
+EXPECTED RUNTIME: ~15–25 minutes (5 edits × ~3 min each)
+
+
+----------------------------------------------------------------
+PHASE 2 — Architecture Inspection
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Inspects the FLUX.1-Kontext-dev transformer:
+  - Counts blocks, heads, hidden dimensions
+  - Prints Q/K/V projection shapes
+  - Calculates expected K/V tensor size at 1024x1024
+  - Saves a full JSON summary
+
+COMMAND:
+  python NewWork/KontextEval/phase2_architecture.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase2
+
+OUTPUT FILES (in results/phase2/):
+  architecture_summary.json   ← full model spec
+
+EXPECTED RUNTIME: ~2 minutes (just model loading + inspection, no generation)
+
+
+----------------------------------------------------------------
+PHASE 3 — Attention Hooking
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Attaches CaptureProcessor to every attention block.
+  Verifies that hooked output is pixel-identical to unhooked output.
+  Measures inference overhead.
+  Prints shapes of captured Q, K, V tensors.
+
+COMMAND:
+  python NewWork/KontextEval/phase3_hooking.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase3
+
+OUTPUT FILES (in results/phase3/):
+  no_hook.png          ← baseline generation (no hooks)
+  with_hook.png        ← generation with capture hooks (should be identical)
+
+WHAT TO CHECK:
+  - "Pixel-identical: YES" must appear
+  - Overhead should be < 10%
+  - double_0_K shape should be [1, heads, seq, head_dim]
+
+EXPECTED RUNTIME: ~6 minutes (2 generations)
+
+
+----------------------------------------------------------------
+PHASE 4 — Attention Cache Construction
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Runs one generation with CaptureProcessor.
+  Saves every K and V tensor to disk as .pt files.
+  Reloads them and verifies numerical equality.
+
+COMMAND:
+  python NewWork/KontextEval/phase4_cache.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase4 \
+      --prompt "a modern living room with a sofa"
+
+OUTPUT FILES (in results/phase4/):
+  generation.png
+  kv_cache/
+    double_0_K.pt
+    double_0_V.pt
+    double_1_K.pt
+    double_1_V.pt
+    ...
+    single_0_K.pt
+    single_0_V.pt
+    ...   (one .pt per K and V, all blocks)
+
+WHAT TO CHECK:
+  - "Passed: N / N" where all pass
+  - Total cache size printed in MB
+
+EXPECTED RUNTIME: ~3 minutes
+
+
+----------------------------------------------------------------
+PHASE 5 — Attention Injection Prototype
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Generates a base scene, caches its K/V.
+  Then runs an edit WITH K/V injection at different alpha values.
+  Three experiments:
+    A) K-only injection   at alpha = 0.25 / 0.50 / 0.75 / 1.00
+    B) V-only injection   at alpha = 0.25 / 0.50 / 0.75 / 1.00
+    C) K+V injection      at alpha = 0.25 / 0.50 / 0.75 / 1.00
+  Saves a comparison grid image.
+
+COMMAND:
+  python NewWork/KontextEval/phase5_injection.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase5 \
+      --base_prompt "a modern living room with a sofa and a coffee table" \
+      --edit_prompt "add a yellow bicycle leaning against the wall"
+
+OUTPUT FILES (in results/phase5/):
+  step0_base.png
+  step1_baseline.png          ← edit with no injection
+  K_only/alpha_0.25.png
+  K_only/alpha_0.50.png
+  K_only/alpha_0.75.png
+  K_only/alpha_1.00.png
+  V_only/alpha_0.25.png
+  ...
+  K_and_V/alpha_0.25.png
+  ...
+  comparison_grid.png         ← all results in one image
+
+WHAT TO CHECK:
+  - At low alpha: image should look similar to baseline (edit applied)
+  - At high alpha: previous scene content should be preserved more strongly
+  - Visual inspect comparison_grid.png
+
+EXPECTED RUNTIME: ~40–50 minutes (13 generations)
+
+
+----------------------------------------------------------------
+PHASE 6 — Layer Ablation
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Tests K+V injection on 6 different layer groups:
+    early       : double blocks 0–6
+    middle      : double blocks 7–13
+    late_double : double blocks 14–18
+    late_single : single-stream blocks 0–37
+    all_double  : all 19 double blocks
+    all         : all 57 blocks (19 double + 38 single)
+  Computes PSNR, SSIM, LPIPS, DINOv2 for each group.
+  Outputs a CSV table for the dissertation.
+
+COMMAND:
+  python NewWork/KontextEval/phase6_ablation.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase6 \
+      --base_prompt "a modern living room with a sofa and a coffee table" \
+      --edit_prompt "add a yellow bicycle leaning against the wall" \
+      --alpha_k 0.5 \
+      --alpha_v 0.5
+
+OUTPUT FILES (in results/phase6/):
+  base.png
+  baseline.png
+  early.png
+  middle.png
+  late_double.png
+  late_single.png
+  all_double.png
+  all.png
+  ablation_results.csv       ← table for dissertation
+
+EXPECTED RUNTIME: ~25 minutes (8 generations + metrics)
+
+
+----------------------------------------------------------------
+PHASE 7 — Incremental Editing Pipeline
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Runs the full 6-step edit sequence twice:
+    Run A: baseline (native Kontext, no injection)
+    Run B: method   (K+V injection, cache updated each step)
+  Computes content-preservation metrics at every step.
+  Answers: does the room stay consistent across 5 edits?
+
+EDIT SEQUENCE:
+  Step 0: A modern living room
+  Step 1: Add a bicycle
+  Step 2: Add a vase on the table
+  Step 3: Replace bicycle with a car
+  Step 4: Change car color to red
+  Step 5: Remove vase
+
+COMMAND:
+  python NewWork/KontextEval/phase7_pipeline.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase7 \
+      --alpha_k 0.5 \
+      --alpha_v 0.5
+
+OUTPUT FILES (in results/phase7/):
+  baseline/step_00.png ... step_05.png
+  method/step_00.png   ... step_05.png
+  results.json
+
+EXPECTED RUNTIME: ~35 minutes (12 generations + metrics)
+
+
+----------------------------------------------------------------
+PHASE 8 — Adaptive Attention Preservation
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Replaces the fixed alpha with a per-layer adaptive alpha computed
+  from cosine similarity between current K and cached K.
+  High similarity → low alpha (allow free edit)
+  Low similarity  → high alpha (preserve content)
+  Compares fixed vs adaptive on the same 6-step sequence.
+
+COMMAND:
+  python NewWork/KontextEval/phase8_adaptive.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase8 \
+      --fixed_alpha 0.5 \
+      --adaptive_base 0.5 \
+      --adaptive_method cosine
+
+  # To try entropy-based adaptive alpha instead:
+  python NewWork/KontextEval/phase8_adaptive.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase8_entropy \
+      --adaptive_method entropy
+
+OUTPUT FILES (in results/phase8/):
+  baseline_step_00.png ... baseline_step_05.png
+  fixed_alpha/step_00.png ... step_05.png
+  adaptive/step_00.png    ... step_05.png
+  results.json
+
+EXPECTED RUNTIME: ~50 minutes (18 generations + metrics)
+
+
+----------------------------------------------------------------
+PHASE 9 — Full Evaluation & Dissertation Results
+----------------------------------------------------------------
+
+WHAT IT DOES:
+  Runs ALL 5 methods on the full 6-step edit sequence:
+    1. native      (no injection)
+    2. K_only      (alpha_k=0.5, alpha_v=0.0)
+    3. V_only      (alpha_k=0.0, alpha_v=0.5)
+    4. K_and_V     (alpha_k=0.5, alpha_v=0.5)
+    5. adaptive    (cosine-based adaptive alpha)
+  Computes for every method × every step:
+    - PSNR    (pixel reconstruction)
+    - SSIM    (structural similarity)
+    - LPIPS   (perceptual similarity)
+    - DINOv2  (semantic preservation)
+    - CLIP direction similarity (edit alignment)
+  Exports full CSV and JSON for the dissertation.
+
+COMMAND:
+  python NewWork/KontextEval/phase9_eval.py \
+      --hf_token $HF_TOKEN \
+      --cache_dir ./models \
+      --out_dir results/phase9
+
+OUTPUT FILES (in results/phase9/):
+  native/step_00.png ... step_05.png
+  K_only/step_00.png ... step_05.png
+  V_only/step_00.png ... step_05.png
+  K_and_V/step_00.png ... step_05.png
+  adaptive/step_00.png ... step_05.png
+  full_results.csv       ← main dissertation table
+  full_results.json
+
+EXPECTED RUNTIME: ~2.5–3 hours (30 generations + metrics)
+
+
+================================================================
+QUICK REFERENCE — All Commands in Order
+================================================================
+
+cd /content/cherry_on_top_exp
+pip install -r NewWork/KontextEval/requirements.txt
+export HF_TOKEN=hf_YOUR_TOKEN_HERE
+
+python NewWork/KontextEval/phase1_baseline.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase1
+
+python NewWork/KontextEval/phase2_architecture.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase2
+
+python NewWork/KontextEval/phase3_hooking.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase3
+
+python NewWork/KontextEval/phase4_cache.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase4
+
+python NewWork/KontextEval/phase5_injection.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase5
+
+python NewWork/KontextEval/phase6_ablation.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase6
+
+python NewWork/KontextEval/phase7_pipeline.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase7
+
+python NewWork/KontextEval/phase8_adaptive.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase8
+
+python NewWork/KontextEval/phase9_eval.py \
+    --hf_token $HF_TOKEN --cache_dir ./models --out_dir results/phase9
+
+
+================================================================
+TIPS
+================================================================
+
+- The model (~33 GB) is downloaded only once if you always pass
+  the same --cache_dir. On the second run it loads from disk.
+
+- If a phase crashes mid-way, the model does NOT need to be
+  re-downloaded. Just rerun the same command.
+
+- To change the editing chain prompts, edit the EDIT_SEQUENCE
+  list at the top of the relevant phase script.
+
+- To run only specific layer groups in Phase 6, edit
+  LAYER_GROUPS in phase6_ablation.py before running.
+
+- All result images are saved even if you cannot view them live
+  in the terminal. Download from Colab:
+    from google.colab import files
+    files.download("results/phase1/full_chain.png")
+
+================================================================

@@ -1,0 +1,105 @@
+{
+  "comment": "NeuFlux demo runs. Prompts follow Paper 4 Appendix C.2: '<content>, <style category>'.",
+
+  "global": {
+    "compare": true,
+    "cfg": 3.5,
+    "num_steps": 50,
+    "pfb_alpha": 1.0,
+    "pfb_step": 25,
+    "ortho_scale": 1.0,
+    "style_frac": 0.5,
+    "nudge_lambda": 1.15,
+    "seed": 42,
+    "height": 1024,
+    "width": 1024
+  },
+
+  "runs": [
+    {
+      "comment": "── Watercolor ──",
+      "name": "cat_watercolor",
+      "style_image": "inputs/watercolor_ref.png",
+      "prompt": "A cat, watercolor painting"
+    },
+    {
+      "name": "flower_watercolor",
+      "style_image": "inputs/watercolor_ref.png",
+      "prompt": "A flower, watercolor painting"
+    },
+    {
+      "name": "mountain_watercolor",
+      "style_image": "inputs/watercolor_ref.png",
+      "prompt": "A mountain, watercolor painting"
+    },
+
+    {
+      "comment": "── Oil Painting ──",
+      "name": "castle_oilpainting",
+      "style_image": "inputs/oilpainting_ref.jpg",
+      "prompt": "A castle, oil painting"
+    },
+    {
+      "name": "horse_oilpainting",
+      "style_image": "inputs/oilpainting_ref.jpg",
+      "prompt": "A horse, oil painting"
+    },
+    {
+      "name": "portrait_oilpainting",
+      "style_image": "inputs/oilpainting_ref.jpg",
+      "prompt": "A portrait, oil painting"
+    },
+
+    {
+      "comment": "── 3D Render ──",
+      "name": "robot_3d",
+      "style_image": "inputs/3d_render_ref.png",
+      "prompt": "A robot, 3d rendering"
+    },
+    {
+      "name": "dragon_3d",
+      "style_image": "inputs/3d_render_ref.png",
+      "prompt": "A dragon, 3d rendering"
+    },
+
+    {
+      "comment": "── Cartoon 3D ──",
+      "name": "fox_cartoon3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A fox, 3d cartoon"
+    },
+    {
+      "name": "bear_cartoon3d",
+      "style_image": "inputs/cartoon3d_ref.png",
+      "prompt": "A bear, 3d cartoon"
+    },
+
+    {
+      "comment": "── Drawing ──",
+      "name": "cat_drawing",
+      "style_image": "inputs/drawing_ref.png",
+      "prompt": "A cat, kid crayon drawing"
+    },
+    {
+      "name": "house_drawing",
+      "style_image": "inputs/drawing_ref.png",
+      "prompt": "A house, kid crayon drawing"
+    },
+
+    {
+      "comment": "── Real-image mode (Paper 1: latent nudging) ──",
+      "name": "cat_real_watercolor",
+      "style_image": "inputs/watercolor_ref.png",
+      "content_image": "inputs/cat.jpg",
+      "prompt": "A cat, watercolor painting",
+      "nudge_lambda": 1.15
+    },
+    {
+      "name": "dog_real_oilpainting",
+      "style_image": "inputs/oilpainting_ref.jpg",
+      "content_image": "inputs/dog.jpg",
+      "prompt": "A dog, oil painting",
+      "nudge_lambda": 1.15
+    }
+  ]
+}
