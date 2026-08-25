@@ -137,9 +137,11 @@ def compute_clip_i(img1: Image.Image, img2: Image.Image, device="cuda") -> float
             CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device).eval(),
         )
     proc, model = _clip_cache["clip"]
-    inp = proc(images=[img1, img2], return_tensors="pt", padding=True).to(device)
+    inp = proc(images=[img1, img2], return_tensors="pt").to(device)
     with torch.no_grad():
-        feats = model.get_image_features(**inp)
+        feats = model.get_image_features(pixel_values=inp["pixel_values"])
+    if not isinstance(feats, torch.Tensor):
+        feats = feats.image_embeds if hasattr(feats, "image_embeds") else feats.pooler_output
     feats = feats / feats.norm(dim=-1, keepdim=True)
     return float((feats[0] @ feats[1]).item())
 
