@@ -212,6 +212,122 @@ class BlockAttentionCapture:
             h.remove()
 
 
+class MultiContextAttnCapture:
+    """
+    Memory-efficient per-context-image attention mass capture.
+
+    Unlike BlockAttentionCapture (which stores the full seq×seq weight matrix),
+    this class computes attention mass per context region using chunked log-sum-exp
+    — peak GPU memory is O(B·H·n_target·chunk) instead of O(B·H·seq²).
+
+    Usage:
+        cap = MultiContextAttnCapture(
+            pipe.transformer,
+            n_target=4096,           # tokens for generated image
+            n_ctx_per=4096,          # tokens per context image
+            n_ctx=3,                 # number of context images
+            capture_steps={14},
+        )
+        pipe(..., callback_on_step_end=cap.step_callback, ...)
+        cap.remove()
+        # cap.stats: {block_idx: [(step, {"ctx0": mass, "ctx1": mass, ...}), ...]}
+    """
+    def __init__(self, transformer, n_target, n_ctx_per, n_ctx, capture_steps=None,
+                 chunk_size=4096):
+        self.stats = {}
+        self._step       = [0]
+        self._cur_block  = [-1]
+        self._capture_steps = capture_steps
+        self._n_target   = n_target
+        self._n_ctx_per  = n_ctx_per
+        self._n_ctx      = n_ctx
+        self._chunk      = chunk_size
+        self._orig_sdpa  = F.scaled_dot_product_attention
+        self._hooks      = []
+        self._register(transformer)
+
+    @staticmethod
+    def _chunked_mass(q_t, k_all, scale, regions, chunk_size):
+        """
+        Compute attention mass from q_t to each key region without full allocation.
+        q_t   : (B, H, n_t, d)  — target queries
+        k_all : (B, H, seq, d)  — all keys
+        regions: list of (lo, hi) index pairs in the key sequence
+        Returns: list of float masses (one per region)
+        """
+        seq = k_all.shape[2]
+
+        # Pass 1: chunked log-sum-exp over all keys → log partition function
+        log_Z = None
+        for c0 in range(0, seq, chunk_size):
+            c1 = min(c0 + chunk_size, seq)
+            sc = (q_t @ k_all[:, :, c0:c1, :].transpose(-2, -1)) * scale
+            lse = torch.logsumexp(sc, dim=-1)         # (B, H, n_t)
+            log_Z = lse if log_Z is None else torch.logaddexp(log_Z, lse)
+            del sc
+
+        # Pass 2: mass per region = Σ_j exp(score(t,j) − log_Z(t))
+        masses = []
+        for lo, hi in regions:
+            sc = (q_t @ k_all[:, :, lo:hi, :].transpose(-2, -1)) * scale
+            mass = (sc - log_Z.unsqueeze(-1)).exp().sum(-1).mean().item()
+            masses.append(mass)
+            del sc
+        return masses
+
+    def _register(self, transformer):
+        for i, block in enumerate(transformer.transformer_blocks):
+            self._hooks.append(block.register_forward_pre_hook(
+                lambda m, a, idx=i: self._cur_block.__setitem__(0, idx)
+            ))
+            self._hooks.append(block.register_forward_hook(
+                lambda m, a, o: self._cur_block.__setitem__(0, -1)
+            ))
+
+        cap = self
+        def patched(*args, **kwargs):
+            q = args[0] if args else kwargs.get('query')
+            k = args[1] if len(args) > 1 else kwargs.get('key')
+            scale = args[6] if len(args) > 6 else kwargs.get('scale')
+
+            blk  = cap._cur_block[0]
+            step = cap._step[0]
+            should_capture = (
+                blk >= 0 and q is not None and k is not None
+                and (cap._capture_steps is None or step in cap._capture_steps)
+            )
+            if should_capture:
+                seq           = k.shape[2]
+                total_needed  = cap._n_target + cap._n_ctx * cap._n_ctx_per
+                if seq >= total_needed:
+                    s  = (q.shape[-1] ** -0.5) if scale is None else scale
+                    n_t, n_c = cap._n_target, cap._n_ctx_per
+                    regions = [
+                        (n_t + i * n_c, n_t + (i + 1) * n_c)
+                        for i in range(cap._n_ctx)
+                    ]
+                    with torch.no_grad():
+                        masses = cap._chunked_mass(
+                            q[:, :, :n_t, :].float(),
+                            k.float(), s, regions, cap._chunk,
+                        )
+                    entry = {f"ctx{i}": m for i, m in enumerate(masses)}
+                    cap.stats.setdefault(blk, []).append((step, entry))
+
+            return cap._orig_sdpa(*args, **kwargs)
+
+        F.scaled_dot_product_attention = patched
+
+    def step_callback(self, pipe, step, timestep, cb):
+        self._step[0] = step
+        return cb
+
+    def remove(self):
+        F.scaled_dot_product_attention = self._orig_sdpa
+        for h in self._hooks:
+            h.remove()
+
+
 # ── Plot helpers ──────────────────────────────────────────────────────────────
 
 def save_grid(images, labels, path, cols=4):
