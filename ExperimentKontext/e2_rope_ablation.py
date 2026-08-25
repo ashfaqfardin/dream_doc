@@ -19,19 +19,7 @@ import torch
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(__file__))
-
-# E2 passes image=[img1, img2] — requires patched prepare_latents
-_patch = os.path.join(os.path.dirname(__file__), '..', 'KontextPipeline', 'patch_diffusers.py')
-if os.path.isfile(_patch):
-    import importlib.util, types
-    spec = importlib.util.spec_from_file_location("_patch", _patch)
-    _pm  = importlib.util.module_from_spec(spec); spec.loader.exec_module(_pm)
-    _path = _pm.find_pipeline_file()
-    if _pm.SENTINEL not in _path.read_text(encoding="utf-8"):
-        print("Patch not applied. Applying now ...")
-        _pm.apply_patch(_path)
-
-from utils import load_pipe, compute_ssim, compute_lpips, compute_clip_i, save_grid
+from utils import load_pipe, enable_multi_context, compute_ssim, compute_lpips, compute_clip_i, save_grid
 
 
 def parse_args():
@@ -61,6 +49,7 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     pipe  = load_pipe(args.model_id, args.device)
+    enable_multi_context(pipe)      # supports image=[...] list input
     scene = Image.open(args.scene).convert("RGB")
     obj   = Image.open(args.obj).convert("RGB")
 

@@ -18,6 +18,72 @@ def load_pipe(model_id="black-forest-labs/FLUX.1-Kontext-dev", device="cuda"):
     return pipe
 
 
+def enable_multi_context(pipe):
+    """
+    Monkey-patch pipe.prepare_latents to support image=[img1, img2, ...].
+    Each context image gets its own 3D RoPE temporal index (i=1, 2, ..., N)
+    as described in the Kontext paper. Works regardless of diffusers version.
+    """
+    import types
+    from diffusers.utils.torch_utils import randn_tensor
+
+    def prepare_latents_multi(
+        self, image, batch_size, num_channels_latents,
+        height, width, dtype, device, generator=None, latents=None,
+    ):
+        height = 2 * (int(height) // (self.vae_scale_factor * 2))
+        width  = 2 * (int(width)  // (self.vae_scale_factor * 2))
+        shape  = (batch_size, num_channels_latents, height, width)
+
+        image_latents = image_ids = None
+        if image is not None:
+            image = image.to(device=device, dtype=dtype)
+            if image.shape[1] != self.latent_channels:
+                image_latents_raw = self._encode_vae_image(image=image, generator=generator)
+            else:
+                image_latents_raw = image
+
+            # Expand single image to fill batch (original behaviour)
+            if batch_size > image_latents_raw.shape[0]:
+                if batch_size % image_latents_raw.shape[0] != 0:
+                    raise ValueError(
+                        f"Cannot duplicate image batch of {image_latents_raw.shape[0]} to {batch_size}."
+                    )
+                image_latents_raw = torch.cat(
+                    [image_latents_raw] * (batch_size // image_latents_raw.shape[0]), dim=0
+                )
+
+            # n_ctx > 1 when multiple context images were passed as a list
+            n_ctx = image_latents_raw.shape[0] // batch_size
+
+            all_packed, all_ids = [], []
+            for ctx_idx in range(n_ctx):
+                lo, hi = ctx_idx * batch_size, (ctx_idx + 1) * batch_size
+                ctx_lat = image_latents_raw[lo:hi].contiguous()
+                h, w = ctx_lat.shape[2:]
+                packed = self._pack_latents(ctx_lat, batch_size, num_channels_latents, h, w)
+                ids    = self._prepare_latent_image_ids(batch_size, h // 2, w // 2, device, dtype)
+                ids[..., 0] = ctx_idx + 1          # temporal index: 1, 2, 3, …
+                all_packed.append(packed)
+                all_ids.append(ids)
+
+            image_latents = torch.cat(all_packed, dim=1)   # cat along sequence dim
+            image_ids     = torch.cat(all_ids,    dim=0)   # cat along sequence dim
+
+        latent_ids = self._prepare_latent_image_ids(batch_size, height // 2, width // 2, device, dtype)
+
+        if latents is None:
+            latents = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
+            latents = self._pack_latents(latents, batch_size, num_channels_latents, height, width)
+        else:
+            latents = latents.to(device=device, dtype=dtype)
+
+        return latents, image_latents, latent_ids, image_ids
+
+    pipe.prepare_latents = types.MethodType(prepare_latents_multi, pipe)
+    print("Multi-context prepare_latents patched on pipe instance.")
+
+
 # ── Image helpers ─────────────────────────────────────────────────────────────
 
 def _to_np(img: Image.Image, size=512):

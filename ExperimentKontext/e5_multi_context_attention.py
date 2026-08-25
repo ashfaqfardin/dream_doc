@@ -18,19 +18,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(__file__))
-
-# E5 passes image=[scene, obj1, obj2] — requires patched prepare_latents
-_patch = os.path.join(os.path.dirname(__file__), '..', 'KontextPipeline', 'patch_diffusers.py')
-if os.path.isfile(_patch):
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("_patch", _patch)
-    _pm  = importlib.util.module_from_spec(spec); spec.loader.exec_module(_pm)
-    _path = _pm.find_pipeline_file()
-    if _pm.SENTINEL not in _path.read_text(encoding="utf-8"):
-        print("Patch not applied. Applying now ...")
-        _pm.apply_patch(_path)
-
-from utils import load_pipe, BlockAttentionCapture, attn_entropy
+from utils import load_pipe, enable_multi_context, BlockAttentionCapture, attn_entropy
 
 
 def parse_args():
@@ -52,6 +40,7 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     pipe  = load_pipe(args.model_id, args.device)
+    enable_multi_context(pipe)      # supports image=[...] list input
     scene = Image.open(args.scene).convert("RGB")
     obj1  = Image.open(args.obj1).convert("RGB")
     obj2  = Image.open(args.obj2).convert("RGB")
