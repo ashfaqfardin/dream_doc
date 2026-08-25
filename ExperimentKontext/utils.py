@@ -125,7 +125,7 @@ class BlockAttentionCapture:
                     with torch.no_grad():
                         w = torch.softmax((q.float() @ k.float().transpose(-2, -1)) * s, dim=-1)
                     cap.captures.setdefault(cap._cur_block[0], []).append((step, w.cpu()))
-            return cap._orig_sdpa(q, k, v, attn_mask, dropout_p, is_causal, scale)
+            return cap._orig_sdpa(q, k, v, attn_mask, dropout_p, is_causal, scale=scale)
 
         F.scaled_dot_product_attention = patched
 
