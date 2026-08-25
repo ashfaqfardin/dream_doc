@@ -1,0 +1,8 @@
+torch
+diffusers
+transformers
+Pillow
+numpy
+matplotlib
+scikit-image
+lpips
