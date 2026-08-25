@@ -117,15 +117,20 @@ class BlockAttentionCapture:
             ))
 
         cap = self
-        def patched(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None):
-            if cap._cur_block[0] >= 0:
+        def patched(*args, **kwargs):
+            # Handle both positional (q,k,v) and keyword (query=,key=,value=) calling conventions
+            q = args[0] if len(args) > 0 else kwargs.get('query')
+            k = args[1] if len(args) > 1 else kwargs.get('key')
+            v = args[2] if len(args) > 2 else kwargs.get('value')
+            scale = args[6] if len(args) > 6 else kwargs.get('scale')
+            if cap._cur_block[0] >= 0 and q is not None and k is not None:
                 step = cap._step[0]
                 if cap._capture_steps is None or step in cap._capture_steps:
                     s = (q.shape[-1] ** -0.5) if scale is None else scale
                     with torch.no_grad():
                         w = torch.softmax((q.float() @ k.float().transpose(-2, -1)) * s, dim=-1)
                     cap.captures.setdefault(cap._cur_block[0], []).append((step, w.cpu()))
-            return cap._orig_sdpa(q, k, v, attn_mask, dropout_p, is_causal, scale=scale)
+            return cap._orig_sdpa(*args, **kwargs)
 
         F.scaled_dot_product_attention = patched
 
