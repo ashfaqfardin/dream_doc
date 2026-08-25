@@ -48,16 +48,20 @@ def run_ablated(pipe, scene, prompt, ablate_set: set, n_target: int, args):
             lambda m, a, o: cur_block.__setitem__(0, -1)
         ))
 
-    def ablated_sdpa(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None):
-        if cur_block[0] in ablate_set:
+    def ablated_sdpa(*args, **kwargs):
+        q = args[0] if len(args) > 0 else kwargs.get('query')
+        k = args[1] if len(args) > 1 else kwargs.get('key')
+        v = args[2] if len(args) > 2 else kwargs.get('value')
+        scale = args[6] if len(args) > 6 else kwargs.get('scale')
+        if cur_block[0] in ablate_set and q is not None and k is not None:
             n_ctx = k.shape[2] - n_target
             if n_ctx > 0:
                 s      = (q.shape[-1] ** -0.5) if scale is None else scale
                 scores = q.float() @ k.float().transpose(-2, -1) * s
-                scores[:, :, :n_target, n_target:] = float('-inf')  # kill target→context
+                scores[:, :, :n_target, n_target:] = float('-inf')
                 w = torch.softmax(scores, dim=-1)
                 return (w.to(v.dtype) @ v)
-        return orig_sdpa(q, k, v, attn_mask, dropout_p, is_causal, scale)
+        return orig_sdpa(*args, **kwargs)
 
     F.scaled_dot_product_attention = ablated_sdpa
     result = pipe(
