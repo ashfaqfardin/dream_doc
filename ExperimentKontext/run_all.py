@@ -64,6 +64,13 @@ EXPERIMENTS = [
         "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
                  "--out_dir", "results/e6_drift"],
     },
+    {
+        "id":   "e7",
+        "name": "Stitched Multi-Object Context  (~8 min)",
+        "script": os.path.join(BASE, "e7_stitched_context.py"),
+        "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
+                 "--out_dir", "results/e7_stitched_context"],
+    },
 ]
 
 
