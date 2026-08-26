@@ -99,6 +99,18 @@ EXPERIMENTS = [
                  "--k_scale", "1.5",
                  "--placement_candidates", "4"],
     },
+    {
+        "id":   "e11",
+        "name": "Scene-First Planner -> Pose -> Finalizer  (~3 hr)",
+        "script": os.path.join(BASE, "e11_scene_first_planner_pose_finalizer.py"),
+        "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
+                 "--out_dir", "results/e11_scene_first_planner",
+                 "--planner_steps", "10",
+                 "--pose_steps", "16",
+                 "--final_steps", "28",
+                 "--k_scale", "1.5",
+                 "--placement_candidates", "4"],
+    },
 ]
 
 
