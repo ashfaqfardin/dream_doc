@@ -133,6 +133,19 @@ EXPERIMENTS = [
                  "--out_dir",         "results/e14_reference_replacer",
                  "--auto_detect"],
     },
+    {
+        "id":   "e15",
+        "name": "Generic Place-Then-Replace Pipeline  (~2 hr)",
+        "script": os.path.join(BASE, "e15_generic_place_then_replace_pipeline.py"),
+        "args": ["--base_image",       SCENE,
+                 "--objects_json",     os.path.join(BASE, "e15_objects.json"),
+                 "--out_dir",          "results/e15_place_then_replace",
+                 "--placement_candidates", "4",
+                 "--placement_steps",  "16",
+                 "--replace_steps",    "28",
+                 "--refine_steps",     "20",
+                 "--cpu_offload"],
+    },
 ]
 
 
