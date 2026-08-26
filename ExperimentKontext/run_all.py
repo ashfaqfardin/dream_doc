@@ -71,6 +71,13 @@ EXPERIMENTS = [
         "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
                  "--out_dir", "results/e7_stitched_context"],
     },
+    {
+        "id":   "e8",
+        "name": "Object K/V Attention Concatenation  (~14 min)",
+        "script": os.path.join(BASE, "e8_obj_attn_concat.py"),
+        "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
+                 "--out_dir", "results/e8_obj_attn_concat"],
+    },
 ]
 
 

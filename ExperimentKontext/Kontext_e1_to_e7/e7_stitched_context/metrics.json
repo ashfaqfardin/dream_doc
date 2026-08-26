@@ -1,0 +1,142 @@
+[
+  {
+    "k": 1,
+    "objects": [
+      "bicycle"
+    ],
+    "prompt": "Place the bicycle (shown in the reference image in the reference image) against the left wall on the floor. Keep the exact appearance, color, and design of each object exactly as shown in the reference image.",
+    "bg_ssim": 0.7316911865539323,
+    "bg_lpips": 0.3822425603866577,
+    "dino_bicycle": 0.8275887966156006,
+    "clip_bicycle": 0.9063968658447266
+  },
+  {
+    "k": 2,
+    "objects": [
+      "bicycle",
+      "vase"
+    ],
+    "prompt": "Place the bicycle (shown top-left in the reference image) against the left wall on the floor. Place the vase (shown top-center in the reference image) on the windowsill. Keep the exact appearance, color, and design of each object exactly as shown in the reference image.",
+    "bg_ssim": 0.7999291856299595,
+    "bg_lpips": 0.2750612795352936,
+    "dino_bicycle": 0.5378676056861877,
+    "clip_bicycle": 0.763083279132843,
+    "dino_vase": 0.0070435646921396255,
+    "clip_vase": 0.5912519097328186
+  },
+  {
+    "k": 3,
+    "objects": [
+      "bicycle",
+      "vase",
+      "ball"
+    ],
+    "prompt": "Place the bicycle (shown top-left in the reference image) against the left wall on the floor. Place the vase (shown top-center in the reference image) on the windowsill. Place the ball (shown middle-left in the reference image) in the far corner. Keep the exact appearance, color, and design of each object exactly as shown in the reference image.",
+    "bg_ssim": 0.7223374688860487,
+    "bg_lpips": 0.46794602274894714,
+    "dino_bicycle": 0.36195701360702515,
+    "clip_bicycle": 0.7402175664901733,
+    "dino_vase": 0.13595719635486603,
+    "clip_vase": 0.6704840064048767,
+    "dino_ball": 0.230540931224823,
+    "clip_ball": 0.7107673287391663
+  },
+  {
+    "k": 4,
+    "objects": [
+      "bicycle",
+      "vase",
+      "ball",
+      "chair"
+    ],
+    "prompt": "Place the bicycle (shown top-left in the reference image) against the left wall on the floor. Place the vase (shown top-center in the reference image) on the windowsill. Place the ball (shown middle-left in the reference image) in the far corner. Place the chair (shown middle-center in the reference image) against the right wall on the floor. Keep the exact appearance, color, and design of each object exactly as shown in the reference image.",
+    "bg_ssim": 0.7134821324178363,
+    "bg_lpips": 0.4688125550746918,
+    "dino_bicycle": 0.3935667872428894,
+    "clip_bicycle": 0.731020450592041,
+    "dino_vase": 0.1346152275800705,
+    "clip_vase": 0.6708818674087524,
+    "dino_ball": 0.15211789309978485,
+    "clip_ball": 0.7187790870666504,
+    "dino_chair": 0.12669646739959717,
+    "clip_chair": 0.6649332046508789
+  },
+  {
+    "k": 5,
+    "objects": [
+      "bicycle",
+      "vase",
+      "ball",
+      "chair",
+      "lamp"
+    ],
+    "prompt": "Place the bicycle (shown top-left in the reference image) against the left wall on the floor. Place the vase (shown top-center in the reference image) on the windowsill. Place the ball (shown top-right in the reference image) in the far corner. Place the chair (shown middle-left in the reference image) middle-left in the reference grid. Place the lamp (shown middle-center in the reference image) middle-center in the reference grid. Keep the exact appearance, color, and design of each object exactly as shown in the reference image.",
+    "bg_ssim": 0.7043174756948885,
+    "bg_lpips": 0.5191992521286011,
+    "dino_bicycle": 0.24172674119472504,
+    "clip_bicycle": 0.6811054944992065,
+    "dino_vase": 0.09214234352111816,
+    "clip_vase": 0.6629754900932312,
+    "dino_ball": 0.14474302530288696,
+    "clip_ball": 0.6164633631706238,
+    "dino_chair": 0.17859810590744019,
+    "clip_chair": 0.6870418190956116,
+    "dino_lamp": 0.157925546169281,
+    "clip_lamp": 0.7239280939102173
+  },
+  {
+    "k": 6,
+    "objects": [
+      "bicycle",
+      "vase",
+      "ball",
+      "chair",
+      "lamp",
+      "plant"
+    ],
+    "prompt": "Place the bicycle (shown top-left in the reference image) against the left wall on the floor. Place the vase (shown top-center in the reference image) on the windowsill. Place the ball (shown top-right in the reference image) in the far corner. Place the chair (shown middle-left in the reference image) middle-left in the reference grid. Place the lamp (shown middle-center in the reference image) middle-center in the reference grid. Place the plant (shown middle-right in the reference image) middle-right in the reference grid. Keep the exact appearance, color, and design of each object exactly as shown in the reference image.",
+    "bg_ssim": 0.7361399038048176,
+    "bg_lpips": 0.47764772176742554,
+    "dino_bicycle": 0.2836616635322571,
+    "clip_bicycle": 0.6756266355514526,
+    "dino_vase": 0.0926203653216362,
+    "clip_vase": 0.6596553325653076,
+    "dino_ball": 0.10095377266407013,
+    "clip_ball": 0.6151168346405029,
+    "dino_chair": 0.2141299694776535,
+    "clip_chair": 0.6741997599601746,
+    "dino_lamp": 0.18810150027275085,
+    "clip_lamp": 0.700872540473938,
+    "dino_plant": 0.07384619116783142,
+    "clip_plant": 0.6375242471694946
+  },
+  {
+    "k": 7,
+    "objects": [
+      "bicycle",
+      "vase",
+      "ball",
+      "chair",
+      "lamp",
+      "plant",
+      "backpack"
+    ],
+    "prompt": "Place the bicycle (shown top-left in the reference image) against the left wall on the floor. Place the vase (shown top-center in the reference image) on the windowsill. Place the ball (shown top-right in the reference image) in the far corner. Place the chair (shown middle-left in the reference image) against the left wall on the floor. Place the lamp (shown middle-center in the reference image) on the windowsill. Place the plant (shown middle-right in the reference image) in the far corner. Place the backpack (shown bottom-left in the reference image) on the floor. Keep the exact appearance, color, and design of each object exactly as shown in the reference image.",
+    "bg_ssim": 0.7662641840499115,
+    "bg_lpips": 0.4306591749191284,
+    "dino_bicycle": 0.2502966821193695,
+    "clip_bicycle": 0.6829790472984314,
+    "dino_vase": 0.06445516645908356,
+    "clip_vase": 0.6620320677757263,
+    "dino_ball": 0.05626644939184189,
+    "clip_ball": 0.6334398984909058,
+    "dino_chair": 0.37307995557785034,
+    "clip_chair": 0.6655753254890442,
+    "dino_lamp": 0.22546252608299255,
+    "clip_lamp": 0.6794462203979492,
+    "dino_plant": 0.01599346473813057,
+    "clip_plant": 0.66238933801651,
+    "dino_backpack": 0.04114089161157608,
+    "clip_backpack": 0.624882161617279
+  }
+]
