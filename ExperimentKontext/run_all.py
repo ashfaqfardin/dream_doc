@@ -88,6 +88,17 @@ EXPERIMENTS = [
                  "--steps", "28",
                  "--k_scale", "1.5"],
     },
+    {
+        "id":   "e10",
+        "name": "Scene-Aware Adaptive Placement  (~2 hr)",
+        "script": os.path.join(BASE, "e10_scene_aware_adaptive_placement.py"),
+        "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
+                 "--out_dir", "results/e10_scene_aware_adaptive",
+                 "--proposal_steps", "12",
+                 "--steps", "28",
+                 "--k_scale", "1.5",
+                 "--placement_candidates", "4"],
+    },
 ]
 
 
