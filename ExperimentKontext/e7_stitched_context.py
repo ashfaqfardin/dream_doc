@@ -79,13 +79,20 @@ def vlm_suggest_placements(scene: Image.Image, names: list, positions: list,
     Ask a VLM to suggest room-aware placement for each object.
     Returns {name: placement_string}.
     """
-    from transformers import AutoProcessor, AutoModelForVision2Seq
+    from transformers import AutoProcessor
+    try:
+        from transformers import AutoModelForVision2Seq as _VLMCls
+    except ImportError:
+        try:
+            from transformers import Qwen2VLForConditionalGeneration as _VLMCls
+        except ImportError:
+            from transformers import AutoModel as _VLMCls
 
     if vlm_model not in _vlm_cache:
         print(f"Loading VLM: {vlm_model} ...")
-        proc  = AutoProcessor.from_pretrained(vlm_model)
-        model = AutoModelForVision2Seq.from_pretrained(
-            vlm_model, torch_dtype=torch.bfloat16
+        proc  = AutoProcessor.from_pretrained(vlm_model, trust_remote_code=True)
+        model = _VLMCls.from_pretrained(
+            vlm_model, torch_dtype=torch.bfloat16, trust_remote_code=True
         ).to(device).eval()
         _vlm_cache[vlm_model] = (proc, model)
     proc, model = _vlm_cache[vlm_model]
