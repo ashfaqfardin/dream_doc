@@ -78,6 +78,16 @@ EXPERIMENTS = [
         "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
                  "--out_dir", "results/e8_obj_attn_concat"],
     },
+    {
+        "id":   "e9",
+        "name": "Self-Localizing Incremental Editing  (~40 min)",
+        "script": os.path.join(BASE, "e9_self_localizing_incremental.py"),
+        "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
+                 "--out_dir", "results/e9_self_localizing",
+                 "--proposal_steps", "12",
+                 "--steps", "28",
+                 "--k_scale", "1.5"],
+    },
 ]
 
 
