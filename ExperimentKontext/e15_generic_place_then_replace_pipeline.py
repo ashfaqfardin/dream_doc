@@ -69,13 +69,13 @@ For one object, convenience arguments are also supported:
 
 Masking
 -------
-Default `--mask_backend auto`:
+Fallback `--mask_backend auto`:
   - try GroundingDINO zero-shot object detection on the GENERIC proposal;
   - derive a tighter mask from proposal-vs-pre-edit difference restricted to the
     detected box;
   - if detection fails, fall back to a difference-component mask.
 
-Optional `--mask_backend sam2` uses the GroundingDINO box as a SAM 2 prompt
+Default `--mask_backend sam2` uses the GroundingDINO box as a SAM 2 prompt
 and selects a precise silhouette using SAM confidence plus changed-pixel agreement.
 
 No object-specific detector classes are hard-coded.
@@ -143,6 +143,7 @@ class ObjectJob:
     placement_hint: str = ""
     pose_instruction: str = ""
     reference_flip: str = "none"
+    pose_source: str = "generic"
 
 
 @dataclass
@@ -168,6 +169,7 @@ class CandidateResult:
     box: Optional[Tuple[int, int, int, int]]
     prompt_short: str
     prompt_long: str
+    valid: bool
 
 
 # =============================================================================
@@ -350,11 +352,21 @@ def insertion_prompts(job: ObjectJob, candidate_index: int, candidate_count: int
 
 def replacement_prompts(job: ObjectJob) -> Tuple[str, str]:
     short = f"Replace the masked {job.name} with the reference {job.name}."
+    if job.pose_source == "reference":
+        pose_text = (
+            "Adopt the object's pose, orientation and visible-part arrangement from the reference image, "
+            "while adapting that pose to the target scene's placement, scale and perspective. "
+        )
+    else:
+        pose_text = (
+            "Preserve the generic object's orientation, viewpoint and pose while keeping its current "
+            "placement, footprint, approximate size and scene perspective. "
+        )
     long = (
         f"Replace only the masked generic {job.name} with the exact object shown in the reference image. "
-        "Preserve the generic object's current placement, footprint, approximate size, orientation, "
-        "viewpoint and scene perspective. Transfer identity from the reference: colors, materials, texture, "
-        "distinctive design, proportions and characteristic parts. Preserve the surrounding scene. "
+        + pose_text
+        + "Transfer identity from the reference: colors, materials, texture, distinctive design, "
+        "proportions and characteristic parts. Preserve the surrounding scene. "
     )
     if job.pose_instruction:
         long += f"Keep this pose/orientation requirement: {job.pose_instruction.strip()} "
@@ -364,8 +376,13 @@ def replacement_prompts(job: ObjectJob) -> Tuple[str, str]:
 
 def refinement_prompts(job: ObjectJob) -> Tuple[str, str]:
     short = f"Refine the masked {job.name} to match the reference."
+    pose_text = (
+        "Keep the reference-derived pose and current scene placement. "
+        if job.pose_source == "reference"
+        else "Keep its current location, pose, viewpoint, scale and perspective. "
+    )
     long = (
-        f"Refine only the masked {job.name}. Keep its current location, pose, viewpoint, scale and perspective. "
+        f"Refine only the masked {job.name}. " + pose_text +
         "Improve identity agreement with the reference image, especially colors, materials, texture, design, "
         "proportions and distinctive parts. Remove artifacts and preserve everything outside the mask."
     )
@@ -478,16 +495,59 @@ def replacement_envelope(
     expand_frac: float,
     feather_px: float,
 ) -> Tuple[Image.Image, Image.Image]:
-    """Provide enough canvas for a reference whose geometry differs from the anchor."""
+    """Grow the SAM silhouette organically without exposing its whole bounding box."""
     bbox = mask_bbox(object_mask)
     if bbox is None:
         raise RuntimeError("Cannot build a replacement envelope from an empty object mask")
-    expanded = expand_box(bbox, size, expand_frac)
-    hard = box_mask(expanded, size)
+    bw, bh = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    radius = max(1, int(round(max(bw, bh) * float(expand_frac))))
+    hard = dilate_mask_image(object_mask.resize(size, Image.Resampling.NEAREST), radius)
     soft = hard
     if feather_px > 0:
         soft = hard.filter(ImageFilter.GaussianBlur(radius=float(feather_px)))
     return hard, soft
+
+
+def isolate_reference_object(
+    reference: Image.Image,
+    object_name: str,
+    detector: Optional[GenericDetector],
+    segmenter: Optional[SAM2BoxSegmenter],
+    args,
+) -> Tuple[Image.Image, Image.Image]:
+    """Segment and crop the reference so its background cannot condition replacement."""
+    reference = reference.convert("RGB")
+    try:
+        det = detector.detect(reference, object_name, args.detection_threshold) if detector else None
+    except Exception as exc:
+        warnings.warn(f"Reference detector failed for '{object_name}': {exc}")
+        det = None
+    if det is None or segmenter is None:
+        warnings.warn(
+            f"Could not SAM-segment reference '{object_name}'; using the unmodified reference."
+        )
+        return reference, Image.new("L", reference.size, 255)
+
+    # SAM's difference-aware ranking needs an evidence map. Inside a trusted semantic
+    # detection box, a uniform map leaves selection primarily to SAM confidence.
+    evidence = np.ones((reference.height, reference.width), dtype=np.float32)
+    mask = segmenter.segment(reference, det.box, evidence)
+    bbox = mask_bbox(mask)
+    area = mask_area_fraction(mask)
+    if bbox is None or not args.min_ref_mask_frac <= area <= args.max_ref_mask_frac:
+        warnings.warn(
+            f"Suspicious reference SAM mask for '{object_name}' ({area:.2%}); "
+            "using the unmodified reference."
+        )
+        return reference, Image.new("L", reference.size, 255)
+
+    bbox = expand_box(bbox, reference.size, args.reference_crop_expand_frac)
+    crop = reference.crop(bbox)
+    crop_mask = mask.crop(bbox)
+    # A neutral background minimizes accidental transfer of the reference scene.
+    neutral = Image.new("RGB", crop.size, (127, 127, 127))
+    isolated = Image.composite(crop, neutral, crop_mask)
+    return isolated, mask
 
 
 
@@ -582,7 +642,7 @@ class GenericDetector:
             device=detector_device,
         )
 
-    def detect(self, image: Image.Image, label: str, threshold: float) -> Optional[Detection]:
+    def detect_all(self, image: Image.Image, label: str, threshold: float) -> List[Detection]:
         self._load()
         assert self._pipe is not None
         try:
@@ -591,7 +651,7 @@ class GenericDetector:
             # Some transformers versions use text_queries.
             preds = self._pipe(image, text_queries=[label])
 
-        best = None
+        detections: List[Detection] = []
         for p in preds:
             score = float(p.get("score", 0.0))
             if score < threshold:
@@ -607,10 +667,12 @@ class GenericDetector:
             else:
                 box = tuple(int(round(float(x))) for x in b)  # type: ignore
             box = clamp_box(box, image.size)
-            det = Detection(score=score, box=box, label=str(p.get("label", label)))
-            if best is None or det.score > best.score:
-                best = det
-        return best
+            detections.append(Detection(score=score, box=box, label=str(p.get("label", label))))
+        return sorted(detections, key=lambda detection: detection.score, reverse=True)
+
+    def detect(self, image: Image.Image, label: str, threshold: float) -> Optional[Detection]:
+        detections = self.detect_all(image, label, threshold)
+        return detections[0] if detections else None
 
 
 class SAM2BoxSegmenter:
@@ -748,6 +810,15 @@ def load_inpaint_pipe(args):
     return place_pipe_on_device(pipe, args)
 
 
+def load_inpaint_pipe_from_planner(planner_pipe, args):
+    if args.share_pipeline_components and hasattr(FluxKontextInpaintPipeline, "from_pipe"):
+        try:
+            return FluxKontextInpaintPipeline.from_pipe(planner_pipe)
+        except Exception as exc:
+            warnings.warn(f"Could not share Kontext pipeline components: {exc}")
+    return load_inpaint_pipe(args)
+
+
 
 def generate_base_scene(args) -> Image.Image:
     if not args.base_prompt:
@@ -794,7 +865,10 @@ def load_jobs(args) -> List[ObjectJob]:
                 placement_hint=str(item.get("placement_hint", "")),
                 pose_instruction=str(item.get("pose_instruction", "")),
                 reference_flip=str(item.get("reference_flip", "none")),
+                pose_source=str(item.get("pose_source", args.pose_source or "generic")).lower(),
             ))
+            if jobs[-1].pose_source not in {"generic", "reference"}:
+                raise ValueError(f"objects_json item {i} has invalid pose_source")
         return jobs
 
     if args.object_name and args.reference_image:
@@ -804,6 +878,7 @@ def load_jobs(args) -> List[ObjectJob]:
             placement_hint=args.placement_hint or "",
             pose_instruction=args.pose_instruction or "",
             reference_flip=args.reference_flip,
+            pose_source=args.pose_source or "generic",
         )]
 
     raise ValueError(
@@ -833,7 +908,16 @@ def create_mask_for_proposal(
     det = None
     if args.mask_backend in {"auto", "groundingdino", "sam2"} and detector is not None:
         try:
-            det = detector.detect(proposal, object_name, threshold=args.detection_threshold)
+            detections = detector.detect_all(
+                proposal, object_name, threshold=args.detection_threshold
+            )
+            if detections:
+                det = max(
+                    detections,
+                    key=lambda candidate: candidate.score
+                    + args.detector_change_weight
+                    * mask_iou(box_mask(candidate.box, proposal.size), changed_hard),
+                )
         except Exception as exc:
             warnings.warn(f"Detector failed for '{object_name}': {exc}")
             det = None
@@ -928,6 +1012,12 @@ def generate_generic_candidates(
             previous_masks=previous_masks,
             args=args,
         )
+        valid = (
+            comp["locality"] >= args.min_candidate_locality
+            and args.min_mask_frac <= comp["area_fraction"] <= args.max_mask_frac
+            and comp["border_fraction"] <= args.max_candidate_border_fraction
+            and (not args.require_detection or comp["detection_score"] >= args.detection_threshold)
+        )
 
         cand_dir = os.path.join(root, f"candidate_{i:02d}")
         ensure_dir(cand_dir)
@@ -945,6 +1035,7 @@ def generate_generic_candidates(
             "score": score,
             "seed": cand_seed,
             "box": box,
+            "valid": valid,
             **comp,
         }, os.path.join(cand_dir, "score.json"))
 
@@ -963,9 +1054,16 @@ def generate_generic_candidates(
             box=box,
             prompt_short=short,
             prompt_long=long,
+            valid=valid,
         ))
 
-    best = max(candidates, key=lambda c: c.score)
+    valid_candidates = [candidate for candidate in candidates if candidate.valid]
+    if not valid_candidates:
+        raise RuntimeError(
+            f"No valid placement candidate for '{job.name}'. Inspect {root}; "
+            "do not replace an unrelated or failed edit."
+        )
+    best = max(valid_candidates, key=lambda c: c.score)
     save_json({
         "selected_candidate": best.index,
         "selected_seed": best.seed,
@@ -1065,6 +1163,30 @@ def refine_reference_identity(
     return protected, short, long
 
 
+def segment_final_object(
+    final_scene: Image.Image,
+    target_mask: Image.Image,
+    segmenter: Optional[SAM2BoxSegmenter],
+    args,
+) -> Image.Image:
+    """Track the final geometry rather than retaining the obsolete generic mask."""
+    if segmenter is None:
+        return target_mask.convert("L")
+    bbox = mask_bbox(target_mask)
+    if bbox is None:
+        return target_mask.convert("L")
+    evidence = np.asarray(target_mask.convert("L"), dtype=np.float32) / 255.0
+    try:
+        final_mask = segmenter.segment(final_scene, bbox, evidence)
+        area = mask_area_fraction(final_mask)
+        if args.min_mask_frac <= area <= args.max_mask_frac:
+            return final_mask
+        warnings.warn(f"Final SAM mask has suspicious area {area:.2%}; keeping target mask.")
+    except Exception as exc:
+        warnings.warn(f"Final SAM tracking failed: {exc}; keeping target mask.")
+    return target_mask.convert("L")
+
+
 # =============================================================================
 # CLI
 # =============================================================================
@@ -1086,6 +1208,12 @@ def parse_args():
     p.add_argument("--placement_hint", default="")
     p.add_argument("--pose_instruction", default="")
     p.add_argument("--reference_flip", choices=["none", "horizontal", "vertical", "both"], default="none")
+    p.add_argument(
+        "--pose_source",
+        choices=["generic", "reference"],
+        default=None,
+        help="Global pose source; JSON pose_source overrides it per object (default: generic)",
+    )
 
     # Output / models / runtime.
     p.add_argument("--out_dir", default="results/e15_generic_place_then_replace")
@@ -1098,6 +1226,12 @@ def parse_args():
     p.add_argument("--sam2_device", default="cpu", choices=["cpu", "cuda"])
     p.add_argument("--torch_dtype", default="bfloat16", choices=["float16", "bfloat16", "float32"])
     p.add_argument("--cpu_offload", action="store_true")
+    p.add_argument(
+        "--share_pipeline_components",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Reuse planner model components in the inpaint pipeline to reduce memory",
+    )
     p.add_argument("--width", type=int, default=1024)
     p.add_argument("--height", type=int, default=1024)
     p.add_argument("--seed", type=int, default=42)
@@ -1110,12 +1244,20 @@ def parse_args():
     p.add_argument("--placement_candidates", type=int, default=4)
     p.add_argument("--placement_steps", type=int, default=16)
     p.add_argument("--placement_guidance_scale", type=float, default=2.5)
+    p.add_argument("--min_candidate_locality", type=float, default=0.50)
+    p.add_argument("--max_candidate_border_fraction", type=float, default=0.35)
+    p.add_argument(
+        "--require_detection",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Reject proposals unless GroundingDINO confirms the requested class",
+    )
 
     # Masking.
     p.add_argument(
         "--mask_backend",
         choices=["auto", "groundingdino", "sam2", "difference"],
-        default="auto",
+        default="sam2",
         help="sam2 uses a GroundingDINO box prompt for precise segmentation",
     )
     p.add_argument("--detection_threshold", type=float, default=0.20)
@@ -1125,6 +1267,12 @@ def parse_args():
         default=0.05,
         help="Reject a detector box that does not overlap the newly changed region",
     )
+    p.add_argument(
+        "--detector_change_weight",
+        type=float,
+        default=2.0,
+        help="Prefer detections aligned with the new edit over stale high-confidence objects",
+    )
     p.add_argument("--detect_box_expand_frac", type=float, default=0.12)
     p.add_argument("--diff_quantile", type=float, default=0.80)
     p.add_argument("--diff_blur_px", type=float, default=3.0)
@@ -1133,6 +1281,9 @@ def parse_args():
     p.add_argument("--mask_feather_px", type=float, default=8.0)
     p.add_argument("--min_mask_frac", type=float, default=0.003)
     p.add_argument("--max_mask_frac", type=float, default=0.40)
+    p.add_argument("--min_ref_mask_frac", type=float, default=0.01)
+    p.add_argument("--max_ref_mask_frac", type=float, default=0.95)
+    p.add_argument("--reference_crop_expand_frac", type=float, default=0.08)
 
     # Candidate score.
     p.add_argument("--score_detection_weight", type=float, default=1.00)
@@ -1147,10 +1298,12 @@ def parse_args():
     p.add_argument("--replace_guidance_scale", type=float, default=2.5)
     p.add_argument("--inpaint_mask_blur_px", type=float, default=5.0)
     p.add_argument(
+        "--replacement_mask_expand_frac",
         "--replacement_box_expand_frac",
+        dest="replacement_mask_expand_frac",
         type=float,
-        default=0.18,
-        help="Extra canvas around the SAM object for forming different reference geometry",
+        default=0.10,
+        help="Organic dilation around the SAM silhouette for forming different geometry",
     )
 
     # Refinement.
@@ -1200,7 +1353,7 @@ def main():
     print("Loading FLUX.1 Kontext placement pipeline ...")
     planner_pipe = load_planner_pipe(args)
     print("Loading FLUX.1 Kontext inpaint pipeline ...")
-    inpaint_pipe = load_inpaint_pipe(args)
+    inpaint_pipe = load_inpaint_pipe_from_planner(planner_pipe, args)
 
     accepted_masks: List[Image.Image] = []
     summary: List[Dict[str, Any]] = []
@@ -1239,20 +1392,25 @@ def main():
         replace_hard, replace_soft = replacement_envelope(
             best.hard_mask,
             best.proposal.size,
-            args.replacement_box_expand_frac,
+            args.replacement_mask_expand_frac,
             args.mask_feather_px,
         )
-        replace_hard.save(os.path.join(step_dir, "02_replacement_envelope_hard.png"))
-        replace_soft.save(os.path.join(step_dir, "02_replacement_envelope_soft.png"))
+        replace_hard.save(os.path.join(step_dir, "02_replacement_mask_hard.png"))
+        replace_soft.save(os.path.join(step_dir, "02_replacement_mask_soft.png"))
         make_overlay(best.proposal, replace_soft).save(
-            os.path.join(step_dir, "02_replacement_envelope_overlay.png")
+            os.path.join(step_dir, "02_replacement_mask_overlay.png")
         )
 
         print(f"    selected candidate {best.index}: score={best.score:.3f}")
         print("  Stage 2: replacing generic object with reference object ...")
         reference = Image.open(job.reference).convert("RGB")
         reference = flip_reference(reference, job.reference_flip)
+        reference.save(os.path.join(step_dir, "reference_original.png"))
+        reference, reference_mask = isolate_reference_object(
+            reference, job.name, detector, segmenter, args
+        )
         reference.save(os.path.join(step_dir, "reference_used.png"))
+        reference_mask.save(os.path.join(step_dir, "reference_foreground_mask.png"))
 
         replaced, replace_short, replace_long = replace_with_reference(
             inpaint_pipe=inpaint_pipe,
@@ -1291,8 +1449,19 @@ def main():
                 f.write(refine_long)
 
         final.save(os.path.join(step_dir, "04_final.png"))
+        final_mask = segment_final_object(final, replace_hard, segmenter, args)
+        final_soft_mask = final_mask
+        if args.mask_feather_px > 0:
+            final_soft_mask = final_mask.filter(
+                ImageFilter.GaussianBlur(radius=float(args.mask_feather_px))
+            )
+        final_mask.save(os.path.join(step_dir, "04_final_object_mask_hard.png"))
+        final_soft_mask.save(os.path.join(step_dir, "04_final_object_mask_soft.png"))
+        make_overlay(final, final_soft_mask).save(
+            os.path.join(step_dir, "04_final_object_mask_overlay.png")
+        )
         current_scene = final
-        accepted_masks.append(best.soft_mask)
+        accepted_masks.append(final_soft_mask)
 
         step_record = {
             "step": step,
@@ -1306,6 +1475,8 @@ def main():
             "border_fraction": best.border_fraction,
             "area_fraction": best.area_fraction,
             "box": best.box,
+            "candidate_valid": best.valid,
+            "final_mask_area_fraction": mask_area_fraction(final_mask),
         }
         save_json(step_record, os.path.join(step_dir, "step_summary.json"))
         summary.append(step_record)

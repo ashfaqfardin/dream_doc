@@ -1,9 +1,9 @@
 [
-  {"name": "bicycle",  "reference": "results/kontext_setup/objects/obj_bicycle.png"},
-  {"name": "vase",     "reference": "results/kontext_setup/objects/obj_vase.png"},
-  {"name": "ball",     "reference": "results/kontext_setup/objects/obj_ball.png"},
-  {"name": "chair",    "reference": "results/kontext_setup/objects/obj_chair.png"},
-  {"name": "lamp",     "reference": "results/kontext_setup/objects/obj_lamp.png"},
-  {"name": "plant",    "reference": "results/kontext_setup/objects/obj_plant.png"},
-  {"name": "backpack", "reference": "results/kontext_setup/objects/obj_backpack.png"}
+  {"name": "bicycle",  "reference": "results/kontext_setup/objects/obj_bicycle.png",  "pose_source": "reference"},
+  {"name": "vase",     "reference": "results/kontext_setup/objects/obj_vase.png",     "pose_source": "reference"},
+  {"name": "ball",     "reference": "results/kontext_setup/objects/obj_ball.png",     "pose_source": "reference"},
+  {"name": "chair",    "reference": "results/kontext_setup/objects/obj_chair.png",    "pose_source": "reference"},
+  {"name": "lamp",     "reference": "results/kontext_setup/objects/obj_lamp.png",     "pose_source": "reference"},
+  {"name": "plant",    "reference": "results/kontext_setup/objects/obj_plant.png",    "pose_source": "reference"},
+  {"name": "backpack", "reference": "results/kontext_setup/objects/obj_backpack.png", "pose_source": "reference"}
 ]
