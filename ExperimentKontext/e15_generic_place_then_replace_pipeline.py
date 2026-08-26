@@ -466,6 +466,30 @@ def dilate_mask_image(mask: Image.Image, radius: int) -> Image.Image:
     return mask.convert("L").filter(ImageFilter.MaxFilter(size=size))
 
 
+def box_mask(box: Tuple[int, int, int, int], size: Tuple[int, int]) -> Image.Image:
+    mask = Image.new("L", size, 0)
+    ImageDraw.Draw(mask).rectangle(clamp_box(box, size), fill=255)
+    return mask
+
+
+def replacement_envelope(
+    object_mask: Image.Image,
+    size: Tuple[int, int],
+    expand_frac: float,
+    feather_px: float,
+) -> Tuple[Image.Image, Image.Image]:
+    """Provide enough canvas for a reference whose geometry differs from the anchor."""
+    bbox = mask_bbox(object_mask)
+    if bbox is None:
+        raise RuntimeError("Cannot build a replacement envelope from an empty object mask")
+    expanded = expand_box(bbox, size, expand_frac)
+    hard = box_mask(expanded, size)
+    soft = hard
+    if feather_px > 0:
+        soft = hard.filter(ImageFilter.GaussianBlur(radius=float(feather_px)))
+    return hard, soft
+
+
 
 def difference_mask(
     before: Image.Image,
@@ -801,6 +825,11 @@ def create_mask_for_proposal(
     segmenter: Optional[SAM2BoxSegmenter],
     args,
 ) -> Tuple[Image.Image, Image.Image, np.ndarray, float, Optional[Tuple[int, int, int, int]]]:
+    # Establish where this particular edit happened before consulting a semantic
+    # detector. This prevents an already-inserted, visually dominant object from
+    # being selected again for every later job.
+    changed_hard, changed_soft, diff = difference_mask(before, proposal, args)
+    changed_box = mask_bbox(changed_hard)
     det = None
     if args.mask_backend in {"auto", "groundingdino", "sam2"} and detector is not None:
         try:
@@ -809,14 +838,30 @@ def create_mask_for_proposal(
             warnings.warn(f"Detector failed for '{object_name}': {exc}")
             det = None
 
-    if args.mask_backend in {"groundingdino", "sam2"} and det is None:
+    if args.mask_backend == "groundingdino" and det is None:
         raise RuntimeError(
             f"GroundingDINO could not detect '{object_name}' and "
             f"--mask_backend {args.mask_backend} was requested."
         )
 
     restrict_box = det.box if det is not None else None
-    hard, soft, diff = difference_mask(before, proposal, args, restrict_box=restrict_box)
+    if restrict_box is not None and changed_box is not None:
+        detected_region = box_mask(restrict_box, proposal.size)
+        changed_overlap = mask_iou(detected_region, changed_hard)
+        if changed_overlap < args.detector_change_iou:
+            warnings.warn(
+                f"Ignoring stale GroundingDINO box for '{object_name}' "
+                f"(changed-region IoU={changed_overlap:.3f}); using the new edit region."
+            )
+            restrict_box = changed_box
+            det = None
+    elif restrict_box is None:
+        restrict_box = changed_box
+
+    if restrict_box is not None:
+        hard, soft, diff = difference_mask(before, proposal, args, restrict_box=restrict_box)
+    else:
+        hard, soft = changed_hard, changed_soft
     if args.mask_backend == "sam2":
         if segmenter is None or restrict_box is None:
             raise RuntimeError("SAM 2 masking requires a segmenter and a detected object box")
@@ -1074,6 +1119,12 @@ def parse_args():
         help="sam2 uses a GroundingDINO box prompt for precise segmentation",
     )
     p.add_argument("--detection_threshold", type=float, default=0.20)
+    p.add_argument(
+        "--detector_change_iou",
+        type=float,
+        default=0.05,
+        help="Reject a detector box that does not overlap the newly changed region",
+    )
     p.add_argument("--detect_box_expand_frac", type=float, default=0.12)
     p.add_argument("--diff_quantile", type=float, default=0.80)
     p.add_argument("--diff_blur_px", type=float, default=3.0)
@@ -1095,6 +1146,12 @@ def parse_args():
     p.add_argument("--replace_steps", type=int, default=28)
     p.add_argument("--replace_guidance_scale", type=float, default=2.5)
     p.add_argument("--inpaint_mask_blur_px", type=float, default=5.0)
+    p.add_argument(
+        "--replacement_box_expand_frac",
+        type=float,
+        default=0.18,
+        help="Extra canvas around the SAM object for forming different reference geometry",
+    )
 
     # Refinement.
     p.add_argument("--refine", action=argparse.BooleanOptionalAction, default=True)
@@ -1179,6 +1236,18 @@ def main():
         best.soft_mask.save(os.path.join(step_dir, "02_generic_object_mask_soft.png"))
         make_overlay(best.proposal, best.soft_mask).save(os.path.join(step_dir, "02_mask_overlay_on_generic.png"))
 
+        replace_hard, replace_soft = replacement_envelope(
+            best.hard_mask,
+            best.proposal.size,
+            args.replacement_box_expand_frac,
+            args.mask_feather_px,
+        )
+        replace_hard.save(os.path.join(step_dir, "02_replacement_envelope_hard.png"))
+        replace_soft.save(os.path.join(step_dir, "02_replacement_envelope_soft.png"))
+        make_overlay(best.proposal, replace_soft).save(
+            os.path.join(step_dir, "02_replacement_envelope_overlay.png")
+        )
+
         print(f"    selected candidate {best.index}: score={best.score:.3f}")
         print("  Stage 2: replacing generic object with reference object ...")
         reference = Image.open(job.reference).convert("RGB")
@@ -1191,8 +1260,8 @@ def main():
             current_scene=before,
             job=job,
             reference=reference,
-            hard_mask=best.hard_mask,
-            soft_mask=best.soft_mask,
+            hard_mask=replace_hard,
+            soft_mask=replace_soft,
             args=args,
             seed=best.seed + 5000,
         )
@@ -1211,8 +1280,8 @@ def main():
                 current_scene=before,
                 job=job,
                 reference=reference,
-                hard_mask=best.hard_mask,
-                soft_mask=best.soft_mask,
+                hard_mask=replace_hard,
+                soft_mask=replace_soft,
                 args=args,
                 seed=best.seed + 9000,
             )
