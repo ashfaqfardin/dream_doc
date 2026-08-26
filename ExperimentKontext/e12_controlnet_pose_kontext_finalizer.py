@@ -402,15 +402,13 @@ def planner_candidate_hints(name: str) -> List[Tuple[str, str]]:
 
 
 def build_scene_first_planner_prompt(new_name: str, previous_names: Sequence[str], placement_hint: str) -> str:
-    prompt = (
-        f"Add a plausible generic {new_name} exactly once. {placement_hint} "
-        f"This pass is only for planning where a {new_name} could naturally fit in the room and roughly how large it should appear. "
-        f"Do not focus on exact identity; use a generic but realistic {new_name}. "
-        f"Make sure the {new_name} is physically supported, respects room depth and perspective, and does not float. "
-    )
+    # Keep under CLIP's 77-token limit: use the hint as the main placement signal,
+    # keep object name short, omit verbose explanation sentences.
+    hint_short = placement_hint.split(".")[0].strip()  # first sentence only
+    prompt = f"Add a {new_name} to the room. {hint_short}."
     if previous_names:
-        prompt += f"Keep the existing {', '.join(previous_names)} where they are and do not duplicate or alter them. "
-    prompt += "Preserve the room layout, camera, furniture, walls, floor, and lighting apart from the planned new object."
+        kept = ", ".join(previous_names[:3])  # cap list to avoid overflow
+        prompt += f" Keep the {kept} unchanged."
     return prompt
 
 

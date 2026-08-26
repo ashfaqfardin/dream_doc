@@ -120,7 +120,8 @@ EXPERIMENTS = [
                  "--planner_steps", "10",
                  "--pose_steps", "24",
                  "--final_steps", "28",
-                 "--placement_candidates", "4"],
+                 "--placement_candidates", "4",
+                 "--cpu_offload"],
     },
 ]
 
