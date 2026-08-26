@@ -123,6 +123,16 @@ EXPERIMENTS = [
                  "--placement_candidates", "4",
                  "--cpu_offload"],
     },
+    {
+        "id":   "e14",
+        "name": "Generic Kontext Reference Replacer  (~5 min)",
+        "script": os.path.join(BASE, "e14_generic_kontext_reference_replacer.py"),
+        "args": ["--input_image",     SCENE,
+                 "--reference_image", os.path.join(OBJ_DIR, "obj_bicycle.png"),
+                 "--object_name",     "bicycle",
+                 "--out_dir",         "results/e14_reference_replacer",
+                 "--auto_detect"],
+    },
 ]
 
 

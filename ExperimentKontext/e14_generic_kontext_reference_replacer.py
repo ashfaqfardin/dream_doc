@@ -157,6 +157,16 @@ def blur_mask(mask: Image.Image, radius: float) -> Image.Image:
     return out
 
 
+def make_overlay(scene: Image.Image, mask: Image.Image, strength: float = 0.45) -> Image.Image:
+    base = np.asarray(scene.convert("RGB"), dtype=np.float32)
+    m = np.asarray(mask.convert("L").resize(scene.size, Image.Resampling.BILINEAR), dtype=np.float32) / 255.0
+    tint = base.copy()
+    tint[..., 0] = 255.0
+    alpha = (m * float(strength))[..., None]
+    out = base * (1.0 - alpha) + tint * alpha
+    return Image.fromarray(np.uint8(np.clip(out, 0, 255)), mode="RGB")
+
+
 
 def flip_reference_if_needed(img: Image.Image, mode: str) -> Image.Image:
     mode = mode.lower()
