@@ -144,6 +144,7 @@ EXPERIMENTS = [
                  "--placement_steps",  "16",
                  "--replace_steps",    "28",
                  "--refine_steps",     "20",
+                 "--mask_backend",     "sam2",
                  "--cpu_offload"],
     },
 ]

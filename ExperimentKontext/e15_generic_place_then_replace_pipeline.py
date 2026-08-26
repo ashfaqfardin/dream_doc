@@ -75,6 +75,9 @@ Default `--mask_backend auto`:
     detected box;
   - if detection fails, fall back to a difference-component mask.
 
+Optional `--mask_backend sam2` uses the GroundingDINO box as a SAM 2 prompt
+and selects a precise silhouette using SAM confidence plus changed-pixel agreement.
+
 No object-specific detector classes are hard-coded.
 
 Models
@@ -125,6 +128,7 @@ except Exception as exc:
 DEFAULT_KONTEXT_MODEL = "black-forest-labs/FLUX.1-Kontext-dev"
 DEFAULT_BASE_MODEL = "black-forest-labs/FLUX.1-dev"
 DEFAULT_DETECTOR = "IDEA-Research/grounding-dino-tiny"
+DEFAULT_SAM2_MODEL = "facebook/sam2-hiera-small"
 
 
 # =============================================================================
@@ -585,6 +589,55 @@ class GenericDetector:
         return best
 
 
+class SAM2BoxSegmenter:
+    """Lazily loaded SAM 2 predictor driven by a GroundingDINO box."""
+
+    def __init__(self, model_id: str, device: str = "cpu"):
+        self.model_id = model_id
+        self.device = device
+        self._predictor = None
+
+    def _load(self):
+        if self._predictor is not None:
+            return
+        try:
+            from sam2.sam2_image_predictor import SAM2ImagePredictor
+        except Exception as exc:
+            raise RuntimeError(
+                "SAM 2 is required for --mask_backend sam2. Install it with "
+                "`pip install git+https://github.com/facebookresearch/sam2`."
+            ) from exc
+        self._predictor = SAM2ImagePredictor.from_pretrained(
+            self.model_id, device=self.device
+        )
+
+    def segment(
+        self,
+        image: Image.Image,
+        box: Tuple[int, int, int, int],
+        difference: np.ndarray,
+    ) -> Image.Image:
+        self._load()
+        assert self._predictor is not None
+        self._predictor.set_image(np.asarray(image.convert("RGB")))
+        masks, scores, _ = self._predictor.predict(
+            box=np.asarray(box, dtype=np.float32), multimask_output=True
+        )
+        masks = np.asarray(masks, dtype=bool)
+        scores = np.asarray(scores, dtype=np.float32).reshape(-1)
+        if masks.ndim == 2:
+            masks = masks[None, ...]
+        if masks.shape[0] == 0:
+            raise RuntimeError("SAM 2 returned no masks")
+
+        combined_scores = []
+        for mask, sam_score in zip(masks, scores):
+            changed = float(difference[mask].mean()) if mask.any() else 0.0
+            combined_scores.append(float(sam_score) + 0.35 * changed)
+        best = masks[int(np.argmax(combined_scores))]
+        return Image.fromarray(np.uint8(best) * 255, mode="L")
+
+
 # =============================================================================
 # Candidate scoring
 # =============================================================================
@@ -745,23 +798,39 @@ def create_mask_for_proposal(
     proposal: Image.Image,
     object_name: str,
     detector: Optional[GenericDetector],
+    segmenter: Optional[SAM2BoxSegmenter],
     args,
 ) -> Tuple[Image.Image, Image.Image, np.ndarray, float, Optional[Tuple[int, int, int, int]]]:
     det = None
-    if args.mask_backend in {"auto", "groundingdino"} and detector is not None:
+    if args.mask_backend in {"auto", "groundingdino", "sam2"} and detector is not None:
         try:
             det = detector.detect(proposal, object_name, threshold=args.detection_threshold)
         except Exception as exc:
             warnings.warn(f"Detector failed for '{object_name}': {exc}")
             det = None
 
-    if args.mask_backend == "groundingdino" and det is None:
+    if args.mask_backend in {"groundingdino", "sam2"} and det is None:
         raise RuntimeError(
-            f"GroundingDINO could not detect '{object_name}' and --mask_backend groundingdino was requested."
+            f"GroundingDINO could not detect '{object_name}' and "
+            f"--mask_backend {args.mask_backend} was requested."
         )
 
     restrict_box = det.box if det is not None else None
     hard, soft, diff = difference_mask(before, proposal, args, restrict_box=restrict_box)
+    if args.mask_backend == "sam2":
+        if segmenter is None or restrict_box is None:
+            raise RuntimeError("SAM 2 masking requires a segmenter and a detected object box")
+        hard = segmenter.segment(proposal, restrict_box, diff)
+        area = mask_area_fraction(hard)
+        if not args.min_mask_frac <= area <= args.max_mask_frac:
+            raise RuntimeError(
+                f"SAM 2 produced a pathological mask (area fraction {area:.4f}); "
+                "adjust mask limits or use --mask_backend auto."
+            )
+        hard = dilate_mask_image(hard, args.mask_dilate_px)
+        soft = hard
+        if args.mask_feather_px > 0:
+            soft = hard.filter(ImageFilter.GaussianBlur(radius=float(args.mask_feather_px)))
     detection_score = float(det.score) if det is not None else 0.0
     return hard, soft, diff, detection_score, restrict_box
 
@@ -773,6 +842,7 @@ def generate_generic_candidates(
     job: ObjectJob,
     previous_masks: Sequence[Image.Image],
     detector: Optional[GenericDetector],
+    segmenter: Optional[SAM2BoxSegmenter],
     args,
     step_seed: int,
     step_dir: str,
@@ -801,6 +871,7 @@ def generate_generic_candidates(
             proposal=proposal,
             object_name=job.name,
             detector=detector,
+            segmenter=segmenter,
             args=args,
         )
 
@@ -976,8 +1047,10 @@ def parse_args():
     p.add_argument("--kontext_model_id", default=DEFAULT_KONTEXT_MODEL)
     p.add_argument("--base_model_id", default=DEFAULT_BASE_MODEL)
     p.add_argument("--detector_model_id", default=DEFAULT_DETECTOR)
+    p.add_argument("--sam2_model_id", default=DEFAULT_SAM2_MODEL)
     p.add_argument("--device", default="cuda")
     p.add_argument("--detector_device", default="cpu", choices=["cpu", "cuda"])
+    p.add_argument("--sam2_device", default="cpu", choices=["cpu", "cuda"])
     p.add_argument("--torch_dtype", default="bfloat16", choices=["float16", "bfloat16", "float32"])
     p.add_argument("--cpu_offload", action="store_true")
     p.add_argument("--width", type=int, default=1024)
@@ -994,7 +1067,12 @@ def parse_args():
     p.add_argument("--placement_guidance_scale", type=float, default=2.5)
 
     # Masking.
-    p.add_argument("--mask_backend", choices=["auto", "groundingdino", "difference"], default="auto")
+    p.add_argument(
+        "--mask_backend",
+        choices=["auto", "groundingdino", "sam2", "difference"],
+        default="auto",
+        help="sam2 uses a GroundingDINO box prompt for precise segmentation",
+    )
     p.add_argument("--detection_threshold", type=float, default=0.20)
     p.add_argument("--detect_box_expand_frac", type=float, default=0.12)
     p.add_argument("--diff_quantile", type=float, default=0.80)
@@ -1056,8 +1134,11 @@ def main():
 
     # Detector is generic and lazy-loaded. In 'difference' mode it is never loaded.
     detector: Optional[GenericDetector] = None
-    if args.mask_backend in {"auto", "groundingdino"}:
+    if args.mask_backend in {"auto", "groundingdino", "sam2"}:
         detector = GenericDetector(args.detector_model_id, device=args.detector_device)
+    segmenter: Optional[SAM2BoxSegmenter] = None
+    if args.mask_backend == "sam2":
+        segmenter = SAM2BoxSegmenter(args.sam2_model_id, device=args.sam2_device)
 
     print("Loading FLUX.1 Kontext placement pipeline ...")
     planner_pipe = load_planner_pipe(args)
@@ -1087,6 +1168,7 @@ def main():
             job=job,
             previous_masks=accepted_masks,
             detector=detector,
+            segmenter=segmenter,
             args=args,
             step_seed=args.seed + step * 10000,
             step_dir=step_dir,
