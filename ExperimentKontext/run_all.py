@@ -111,6 +111,17 @@ EXPERIMENTS = [
                  "--k_scale", "1.5",
                  "--placement_candidates", "4"],
     },
+    {
+        "id":   "e12",
+        "name": "ControlNet Pose + Kontext Finalizer  (~4 hr)",
+        "script": os.path.join(BASE, "e12_controlnet_pose_kontext_finalizer.py"),
+        "args": ["--scene", SCENE, "--obj_dir", OBJ_DIR,
+                 "--out_dir", "results/e12_controlnet_pose_kontext",
+                 "--planner_steps", "10",
+                 "--pose_steps", "24",
+                 "--final_steps", "28",
+                 "--placement_candidates", "4"],
+    },
 ]
 
 
