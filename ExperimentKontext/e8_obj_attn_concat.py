@@ -1,25 +1,35 @@
 """
-E8: Object Attention Concatenation
+E8: Object K/V Attention Amplification (in-context)
 
-Each object image is processed in a separate Kontext capture pass. At TIER_A
-blocks (13-18) the K and V tensors for the context-image portion of the
-sequence are extracted. A pixel-level background mask (near-grey / near-white)
-filters out non-object tokens. The scene is then denoised with those filtered
-K/V tensors concatenated onto the existing K and V at every TIER_A attention
-call — the scene's Q selects relevant object features dynamically.
+All objects are passed as separate context images alongside the base scene:
+  image = [base_scene, obj1, obj2, ..., objN]
 
-This sidesteps the E7 stitch failure: there is no composite pixel image for
-Kontext to treat as a poster. Objects are injected at attention level only.
+The multi-context patch assigns each a unique temporal RoPE index (1, 2, 3, ...).
+At TIER_A blocks (13-18), a hook amplifies the K (and optionally V) of each
+object's context-token slice by k_scale. A pixel-level background mask ensures
+only real object tokens (non-grey, non-white) are amplified — background tokens
+stay at scale 1.0.
 
-Conditions (cumulative — all generated from base scene, no chaining):
-  cond_01_bicycle       — bicycle K/V injected
-  cond_02_+vase         — bicycle + vase K/V injected
+Why this fixes E7/E8-v1:
+  - E7 stitch: Kontext treats the composite image as one object (a poster).
+  - E8-v1 pre-capture: K/V from a separate pass carry features from a different
+    denoising context — the scene Q cannot match them → wrong appearance.
+  - E8-v2 (this): K/V are computed in the SAME forward pass at the SAME
+    timestep. Amplification just redirects existing attention toward object
+    tokens without injecting foreign features.
+
+Conditions (cumulative, all from base scene — no chaining):
+  cond_01_bicycle       — base + bicycle context, amplified
+  cond_02_+vase         — base + bicycle + vase contexts, amplified
   ...
-  cond_07_+backpack     — all 7 objects K/V injected
+  cond_07_+backpack     — base + all 7 object contexts, amplified
 
-Metrics: bg_ssim, bg_lpips, dino_{obj}, clip_{obj}  (same as E6/E7)
+Metrics: bg_ssim, bg_lpips, dino_{obj}, clip_{obj}
 
-Runtime: ~7 capture passes (~7 min) + ~7 scene passes (~7 min) = ~14 min total
+Runtime: ~7 × 1 min = ~7 min  (one scene pass per condition, no capture phase)
+
+NOTE: At k=7 the sequence length is ~36 k image tokens. Needs ≥24 GB VRAM.
+      Reduce to --steps 20 or skip high-k conditions if memory is tight.
 """
 import os, sys, argparse, json
 import torch
@@ -35,8 +45,7 @@ from utils import (
 )
 
 
-# Deepest double-stream blocks — highest context-reader attention mass (from E1/E3)
-TIER_A = set(range(13, 19))
+TIER_A = set(range(13, 19))   # deepest double-stream blocks
 
 OBJ_ORDER = ["bicycle", "vase", "ball", "chair", "lamp", "plant", "backpack"]
 
@@ -52,9 +61,9 @@ def make_pixel_mask(
     min_frac: float = 0.05,
 ) -> torch.BoolTensor:
     """
-    Boolean mask of shape (n_lat_h * n_lat_w,): True = object token.
-    Background = near-grey (128,128,128) or near-white (255,255,255).
-    Falls back to centre 50% crop if fewer than min_frac tokens survive.
+    Bool mask (n_lat_h * n_lat_w,): True = object token, False = background.
+    Background = near-grey (128,128,128) OR near-white (>=235 on all channels).
+    Falls back to centre-50% crop if fewer than min_frac tokens survive.
     """
     arr = np.array(
         obj_img.convert("RGB").resize((n_lat_w, n_lat_h), Image.Resampling.LANCZOS)
@@ -77,102 +86,45 @@ def make_pixel_mask(
     return torch.from_numpy(mask.reshape(-1))
 
 
-# ── Capture ───────────────────────────────────────────────────────────────────
+# ── In-context K/V amplifier ──────────────────────────────────────────────────
 
-class ObjectKVCapture:
+class InContextObjKVAmplify:
     """
-    Hooks into TIER_A SDPA calls during a Kontext forward pass on an object
-    image and records K/V of the context-token slice at a target step.
+    During a multi-context Kontext pass (image=[base, obj1, obj2, ...]),
+    amplifies K (and optionally V) of each object's context token slice
+    at TIER_A blocks.
+
+    Sequence layout inside the SDPA at a double-stream block:
+      [ target(n_t) | base_scene(n_c) | obj1(n_c) | obj2(n_c) | ... | text(T) ]
+      ^--- image stream ---^                                      ^text^
+
+    base_scene is at slot 0  (indices n_t : n_t+n_c)   — NOT amplified
+    obj_i      is at slot i+1 (indices n_t+(i+1)*n_c : n_t+(i+2)*n_c)  — amplified
 
     Usage:
-        cap = ObjectKVCapture(pipe.transformer, n_target=4096, n_ctx_per=4096,
-                              capture_step=14)
-        pipe(image=[obj_img], ..., callback_on_step_end=cap.step_callback, ...)
-        cap.remove()
-        kv = cap.result   # {block_idx: (K_cpu, V_cpu)}
+        amp = InContextObjKVAmplify(pipe.transformer, n_target, n_ctx_per,
+                                    obj_masks=[mask1, mask2], k_scale=3.0)
+        pipe(image=[base, obj1, obj2], ...)
+        amp.remove()
     """
-    def __init__(self, transformer, n_target: int, n_ctx_per: int, capture_step: int):
-        self._captured     = {}
-        self._step         = [0]
-        self._cur_blk      = [-1]
-        self._n_target     = n_target
-        self._n_ctx_per    = n_ctx_per
-        self._capture_step = capture_step
-        self._orig_sdpa    = F.scaled_dot_product_attention
-        self._hooks        = []
-        self._register(transformer)
 
-    def _register(self, transformer):
-        for i, block in enumerate(transformer.transformer_blocks):
-            if i not in TIER_A:
-                continue
-            self._hooks.append(block.register_forward_pre_hook(
-                lambda m, a, idx=i: self._cur_blk.__setitem__(0, idx)
-            ))
-            self._hooks.append(block.register_forward_hook(
-                lambda m, a, o: self._cur_blk.__setitem__(0, -1)
-            ))
-
-        cap  = self
-        orig = self._orig_sdpa
-
-        def patched(*args, **kwargs):
-            k = args[1] if len(args) > 1 else kwargs.get('key')
-            v = args[2] if len(args) > 2 else kwargs.get('value')
-            blk = cap._cur_blk[0]
-
-            if (blk in TIER_A and k is not None
-                    and cap._step[0] == cap._capture_step
-                    and blk not in cap._captured):
-                n_t = cap._n_target
-                n_c = cap._n_ctx_per
-                if k.shape[2] >= n_t + n_c:
-                    cap._captured[blk] = (
-                        k[:, :, n_t : n_t + n_c, :].detach().cpu(),
-                        v[:, :, n_t : n_t + n_c, :].detach().cpu(),
-                    )
-
-            return orig(*args, **kwargs)
-
-        F.scaled_dot_product_attention = patched
-
-    def step_callback(self, pipe, step, timestep, cb):
-        self._step[0] = step
-        return cb
-
-    def remove(self):
-        F.scaled_dot_product_attention = self._orig_sdpa
-        for h in self._hooks:
-            h.remove()
-
-    @property
-    def result(self) -> dict:
-        return dict(self._captured)
-
-
-# ── Injection ─────────────────────────────────────────────────────────────────
-
-class ObjKVAttnExtend:
-    """
-    During scene denoising, concatenates pre-captured object K/V tokens onto
-    the end of the K and V sequences at TIER_A blocks.
-
-    Usage:
-        entries = [(obj_kv_dict, mask_bool_tensor), ...]
-        ext = ObjKVAttnExtend(pipe.transformer, entries)
-        pipe(image=[base_scene], ...)
-        ext.remove()
-    """
-    def __init__(self, transformer, entries: list):
-        """
-        entries: list of (obj_kv, mask)
-            obj_kv : {block: (K_cpu, V_cpu)}
-            mask   : BoolTensor (n_ctx_per,) — True = object token
-        """
-        self._entries  = entries
-        self._cur_blk  = [-1]
+    def __init__(
+        self,
+        transformer,
+        n_target: int,
+        n_ctx_per: int,
+        obj_masks: list,        # list of BoolTensor (n_ctx_per,) per object
+        k_scale: float = 3.0,  # amplify object K tokens
+        v_scale: float = 1.0,  # amplify object V tokens (1.0 = unchanged)
+    ):
+        self._n_target  = n_target
+        self._n_ctx_per = n_ctx_per
+        self._obj_masks = obj_masks
+        self._k_scale   = k_scale
+        self._v_scale   = v_scale
+        self._cur_blk   = [-1]
         self._orig_sdpa = F.scaled_dot_product_attention
-        self._hooks    = []
+        self._hooks     = []
         self._register(transformer)
 
     def _register(self, transformer):
@@ -186,17 +138,15 @@ class ObjKVAttnExtend:
                 lambda m, a, o: self._cur_blk.__setitem__(0, -1)
             ))
 
-        ext  = self
+        amp  = self
         orig = self._orig_sdpa
 
         def patched(*args, **kwargs):
-            # Extract q/k/v regardless of positional vs keyword calling convention
             if len(args) >= 3:
-                q, k, v    = args[0], args[1], args[2]
-                rest_args  = args[3:]
-                rest_kw    = kwargs
+                q, k, v   = args[0], args[1], args[2]
+                rest_args = args[3:]
+                rest_kw   = kwargs
             else:
-                # Pop from kwargs so we can rebuild cleanly
                 kw = dict(kwargs)
                 q = args[0] if len(args) > 0 else kw.pop('query', None)
                 k = args[1] if len(args) > 1 else kw.pop('key',   None)
@@ -204,35 +154,34 @@ class ObjKVAttnExtend:
                 rest_args = args[3:]
                 rest_kw   = kw
 
-            blk = ext._cur_blk[0]
+            blk = amp._cur_blk[0]
             if blk in TIER_A and k is not None:
-                extra_ks, extra_vs = [], []
-                dev, dt = k.device, k.dtype
-                B = k.shape[0]
+                n_t = amp._n_target
+                n_c = amp._n_ctx_per
+                seq = k.shape[2]
 
-                for obj_kv, mask in ext._entries:
-                    if blk not in obj_kv:
+                for obj_idx, mask in enumerate(amp._obj_masks):
+                    # slot 0 = base_scene, slot 1+ = objects
+                    s = n_t + (1 + obj_idx) * n_c
+                    e = s + n_c
+                    if e > seq:
                         continue
-                    K_obj, V_obj = obj_kv[blk]
-                    K_obj = K_obj.to(device=dev, dtype=dt)
-                    V_obj = V_obj.to(device=dev, dtype=dt)
 
-                    if mask is not None:
-                        m = mask.to(device=dev)
-                        K_obj = K_obj[:, :, m, :]
-                        V_obj = V_obj[:, :, m, :]
+                    m = mask.to(k.device)   # (n_c,) bool
 
-                    # Handle guided (2×) vs unguided (1×) batch
-                    if K_obj.shape[0] < B:
-                        K_obj = K_obj.expand(B, -1, -1, -1)
-                        V_obj = V_obj.expand(B, -1, -1, -1)
+                    if amp._k_scale != 1.0:
+                        K_sl = k[:, :, s:e, :].clone()
+                        sc_k = torch.where(m, k.new_full(m.shape, amp._k_scale),
+                                           k.new_ones(m.shape))
+                        K_sl = K_sl * sc_k[None, None, :, None]
+                        k = torch.cat([k[:, :, :s, :], K_sl, k[:, :, e:, :]], dim=2)
 
-                    extra_ks.append(K_obj)
-                    extra_vs.append(V_obj)
-
-                if extra_ks:
-                    k = torch.cat([k] + extra_ks, dim=2)
-                    v = torch.cat([v] + extra_vs, dim=2)
+                    if amp._v_scale != 1.0:
+                        V_sl = v[:, :, s:e, :].clone()
+                        sc_v = torch.where(m, v.new_full(m.shape, amp._v_scale),
+                                           v.new_ones(m.shape))
+                        V_sl = V_sl * sc_v[None, None, :, None]
+                        v = torch.cat([v[:, :, :s, :], V_sl, v[:, :, e:, :]], dim=2)
 
             return orig(q, k, v, *rest_args, **rest_kw)
 
@@ -244,34 +193,7 @@ class ObjKVAttnExtend:
             h.remove()
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def capture_object_kv(
-    pipe,
-    obj_img: Image.Image,
-    n_target: int,
-    n_ctx_per: int,
-    capture_step: int,
-    total_steps: int,
-    device: str,
-) -> dict:
-    """
-    Run one Kontext pass with obj_img as context image.
-    Returns {block: (K_cpu, V_cpu)} captured at capture_step.
-    """
-    cap = ObjectKVCapture(pipe.transformer, n_target, n_ctx_per, capture_step)
-    pipe(
-        image=[obj_img],
-        prompt="A product photo on a clean background.",
-        num_inference_steps=total_steps,
-        guidance_scale=2.5,
-        generator=torch.Generator(device).manual_seed(0),
-        callback_on_step_end=cap.step_callback,
-        callback_on_step_end_tensor_inputs=["latents"],
-    )
-    cap.remove()
-    return cap.result
-
+# ── Prompt ────────────────────────────────────────────────────────────────────
 
 def build_prompt(names: list) -> str:
     parts = [f"Place the {n} naturally in the room." for n in names]
@@ -286,18 +208,20 @@ def build_prompt(names: list) -> str:
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--scene",        required=True,  help="Base room image")
-    p.add_argument("--obj_dir",      required=True,  help="Dir with obj_<name>.png files")
-    p.add_argument("--out_dir",      default="results/e8_obj_attn_concat")
-    p.add_argument("--model_id",     default="black-forest-labs/FLUX.1-Kontext-dev")
-    p.add_argument("--steps",        type=int, default=28)
-    p.add_argument("--capture_step", type=int, default=14,
-                   help="Which denoising step to capture object K/V from")
-    p.add_argument("--grey_tol",     type=int, default=20,
+    p.add_argument("--scene",    required=True,  help="Base room image")
+    p.add_argument("--obj_dir",  required=True,  help="Dir with obj_<name>.png files")
+    p.add_argument("--out_dir",  default="results/e8_obj_attn_concat")
+    p.add_argument("--model_id", default="black-forest-labs/FLUX.1-Kontext-dev")
+    p.add_argument("--steps",    type=int,   default=28)
+    p.add_argument("--k_scale",  type=float, default=3.0,
+                   help="K amplification factor for object tokens at TIER_A")
+    p.add_argument("--v_scale",  type=float, default=1.0,
+                   help="V amplification factor for object tokens (1.0=off)")
+    p.add_argument("--grey_tol", type=int,   default=20,
                    help="Pixel tolerance for grey-background mask")
-    p.add_argument("--white_tol",    type=int, default=20,
+    p.add_argument("--white_tol",type=int,   default=20,
                    help="Pixel tolerance for white-background mask")
-    p.add_argument("--device",       default="cuda")
+    p.add_argument("--device",   default="cuda")
     return p.parse_args()
 
 
@@ -308,16 +232,14 @@ def main():
     pipe = load_pipe(args.model_id, args.device)
     enable_multi_context(pipe)
 
-    # Token grid dimensions for 1024×1024 images
-    vae_sf    = pipe.vae_scale_factor          # 8 for FLUX
-    n_lat_h   = 1024 // (vae_sf * 2)          # 64
-    n_lat_w   = 1024 // (vae_sf * 2)          # 64
-    n_target  = n_lat_h * n_lat_w             # 4096
-    n_ctx_per = n_lat_h * n_lat_w             # 4096
+    vae_sf    = pipe.vae_scale_factor        # 8 for FLUX
+    n_lat_h   = 1024 // (vae_sf * 2)        # 64  (= latent_h / 2 for 2×2 packing)
+    n_lat_w   = 1024 // (vae_sf * 2)        # 64
+    n_target  = n_lat_h * n_lat_w           # 4096
+    n_ctx_per = n_lat_h * n_lat_w           # 4096 per context image
 
     base = Image.open(args.scene).convert("RGB")
 
-    # Load objects
     obj_imgs = {}
     for name in OBJ_ORDER:
         path = os.path.join(args.obj_dir, f"obj_{name}.png")
@@ -325,51 +247,46 @@ def main():
             obj_imgs[name] = Image.open(path).convert("RGB")
     available = [n for n in OBJ_ORDER if n in obj_imgs]
     print(f"Found {len(available)} objects: {available}")
+    print(f"k_scale={args.k_scale}  v_scale={args.v_scale}")
 
-    # Pixel masks
+    # Precompute pixel masks once per object
     masks = {}
     for name, img in obj_imgs.items():
         masks[name] = make_pixel_mask(
-            img, n_lat_h, n_lat_w, args.grey_tol, args.white_tol
+            img, n_lat_h, n_lat_w, args.grey_tol, args.white_tol,
         )
         n_obj = int(masks[name].sum().item())
         print(f"  {name}: {n_obj}/{n_lat_h*n_lat_w} object tokens "
               f"({100*n_obj/(n_lat_h*n_lat_w):.1f}%)")
 
-    # Capture K/V once per object
-    print(f"\nCapturing object K/V at step {args.capture_step}/{args.steps} ...")
-    obj_kv = {}
-    for name, img in obj_imgs.items():
-        print(f"  {name} ...")
-        obj_kv[name] = capture_object_kv(
-            pipe, img, n_target, n_ctx_per,
-            args.capture_step, args.steps, args.device,
-        )
-        n_blks = len(obj_kv[name])
-        print(f"    → captured {n_blks} TIER_A blocks "
-              f"(expected {len(TIER_A)})")
-
     metrics = []
 
     for k in range(1, len(available) + 1):
-        names = available[:k]
-        label = f"cond_{k:02d}_{'_'.join(names)}"
-        print(f"\n[{k}/{len(available)}] {label}")
-
+        names  = available[:k]
+        label  = f"cond_{k:02d}_{'_'.join(names)}"
         prompt = build_prompt(names)
+        print(f"\n[{k}/{len(available)}] {label}")
         print(f"  Prompt: {prompt}")
 
-        entries = [(obj_kv[n], masks[n]) for n in names]
+        # context = [base_scene, obj1, ..., objk]
+        context_imgs = [base] + [obj_imgs[n] for n in names]
+        obj_masks_k  = [masks[n] for n in names]
 
-        ext = ObjKVAttnExtend(pipe.transformer, entries)
+        seq_img_tokens = n_target + len(context_imgs) * n_ctx_per
+        print(f"  Sequence: {seq_img_tokens} image tokens + text")
+
+        amp = InContextObjKVAmplify(
+            pipe.transformer, n_target, n_ctx_per, obj_masks_k,
+            k_scale=args.k_scale, v_scale=args.v_scale,
+        )
         result = pipe(
-            image=[base],
+            image=context_imgs,
             prompt=prompt,
             num_inference_steps=args.steps,
             guidance_scale=2.5,
             generator=torch.Generator(args.device).manual_seed(42),
         ).images[0]
-        ext.remove()
+        amp.remove()
 
         result.save(os.path.join(args.out_dir, f"{label}_result.png"))
 
@@ -377,6 +294,8 @@ def main():
             "k":        k,
             "objects":  names,
             "prompt":   prompt,
+            "k_scale":  args.k_scale,
+            "v_scale":  args.v_scale,
             "bg_ssim":  compute_ssim(base, result),
             "bg_lpips": compute_lpips(base, result, args.device),
         }
@@ -400,6 +319,7 @@ def main():
 def _plot(metrics: list, available: list, out_dir: str):
     ks     = [m["k"] for m in metrics]
     labels = [m["objects"][-1] for m in metrics]
+    k_sc   = metrics[0]["k_scale"] if metrics else "?"
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 9))
 
@@ -432,10 +352,11 @@ def _plot(metrics: list, available: list, out_dir: str):
     for ax in axes.flat:
         ax.set_xticks(ks)
         ax.set_xticklabels(labels, rotation=30, ha='right', fontsize=8)
-        ax.set_xlabel("Cumulative objects injected (last added)")
+        ax.set_xlabel("Cumulative objects (last added)")
 
     plt.suptitle(
-        "E8: Object K/V Attention Concatenation — background & identity vs object count",
+        f"E8: In-Context Object K/V Amplification (k_scale={k_sc}) — "
+        "background & identity vs object count",
         fontsize=11,
     )
     plt.tight_layout()
