@@ -63,6 +63,7 @@ class Placement:
     seed: int
     attempt: int
     detection_score: float
+    probe_bbox_fraction: float
     bbox_fraction: float
     border_fraction: float
     overlap_previous: float
@@ -201,12 +202,13 @@ def propose_placement(
             continue
 
         box_frac = bbox_fraction(box, proposal.size)
+        effective_box_frac = box_frac * float(args.reference_scale) ** 2
         edge = box_edge_clearance(box, proposal.size)
         border = border_fraction(object_mask)
         occupied = binary_union(occupied_masks, proposal.size) if occupied_masks else None
         overlap = mask_iou(object_mask, occupied) if occupied is not None else 0.0
         valid = (
-            args.min_bbox_frac <= box_frac <= args.max_bbox_frac
+            args.min_bbox_frac <= effective_box_frac <= args.max_bbox_frac
             and edge >= args.min_edge_clearance_frac
             and border <= args.max_border_fraction
             and overlap <= args.max_overlap
@@ -222,7 +224,8 @@ def propose_placement(
             "seed": seed,
             "box": box,
             "detection_score": detection.score,
-            "bbox_fraction": box_frac,
+            "probe_bbox_fraction": box_frac,
+            "effective_bbox_fraction": effective_box_frac,
             "edge_clearance_fraction": edge,
             "border_fraction": border,
             "overlap_previous": overlap,
@@ -236,12 +239,14 @@ def propose_placement(
                 seed=seed,
                 attempt=attempt,
                 detection_score=detection.score,
-                bbox_fraction=box_frac,
+                probe_bbox_fraction=box_frac,
+                bbox_fraction=effective_box_frac,
                 border_fraction=border,
                 overlap_previous=overlap,
             )
         failures.append(
-            f"attempt {attempt}: bbox={box_frac:.3f}, edge={edge:.3f}, "
+            f"attempt {attempt}: probe_bbox={box_frac:.3f}, "
+            f"effective_bbox={effective_box_frac:.3f}, edge={edge:.3f}, "
             f"border={border:.3f}, overlap={overlap:.3f}"
         )
 
@@ -495,7 +500,8 @@ def main():
             "probe_box": placement.box,
             "placed_reference_box": placed_box,
             "detection_score": placement.detection_score,
-            "bbox_fraction": placement.bbox_fraction,
+            "probe_bbox_fraction": placement.probe_bbox_fraction,
+            "effective_bbox_fraction": placement.bbox_fraction,
             "border_fraction": placement.border_fraction,
             "overlap_previous": placement.overlap_previous,
             "placed_mask_fraction": mask_area_fraction(placed_alpha),

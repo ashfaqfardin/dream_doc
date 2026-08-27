@@ -134,6 +134,15 @@ EXPERIMENTS = [
                  "--auto_detect"],
     },
     {
+        "id":   "e17",
+        "name": "Direct Reference Insertion",
+        "script": os.path.join(BASE, "e17_direct_reference_insertion.py"),
+        "args": ["--base_image",   SCENE,
+                 "--objects_json", os.path.join(BASE, "e15_objects.json"),
+                 "--out_dir",      "results/e17_direct_reference",
+                 "--cpu_offload"],
+    },
+    {
         "id":   "e16",
         "name": "Reference Composite Harmonizer  (~2 hr)",
         "script": os.path.join(BASE, "e16_reference_composite_harmonizer.py"),
