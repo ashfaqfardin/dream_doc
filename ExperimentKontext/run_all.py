@@ -97,7 +97,7 @@ EXPERIMENTS = [
                  "--proposal_steps", "12",
                  "--steps", "28",
                  "--k_scale", "1.5",
-                 "--placement_candidates", "4"],
+                 "--placement_candidates", "1"],
     },
     {
         "id":   "e11",
@@ -140,7 +140,7 @@ EXPERIMENTS = [
         "args": ["--base_image",       SCENE,
                  "--objects_json",     os.path.join(BASE, "e15_objects.json"),
                  "--out_dir",          "results/e15_place_then_replace",
-                 "--placement_candidates", "4",
+                 "--placement_candidates", "1",
                  "--placement_steps",  "16",
                  "--replace_steps",    "28",
                  "--refine_steps",     "20",
