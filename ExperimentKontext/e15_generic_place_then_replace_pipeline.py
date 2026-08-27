@@ -36,6 +36,10 @@ Important design choices
 
 5. Multiple objects are supported sequentially through a JSON manifest.
 
+6. By default, every placement proposal is generated from the unchanged base
+   scene, then only its masked generic anchor is transferred onto the cumulative
+   edited scene for reference inpainting. This avoids cumulative planning drift.
+
 Input modes
 -----------
 A) Existing base image:
@@ -302,6 +306,18 @@ def protect_outside_mask(previous: Image.Image, generated: Image.Image, mask: Im
     gen = generated.convert("RGB").resize(prev.size, Image.Resampling.LANCZOS)
     m = mask.convert("L").resize(prev.size, Image.Resampling.BILINEAR)
     return Image.composite(gen, prev, m)
+
+
+def composite_masked_edit(
+    background: Image.Image,
+    edited_source: Image.Image,
+    mask: Image.Image,
+) -> Image.Image:
+    """Transfer only a planned local edit onto the cumulative scene."""
+    background = background.convert("RGB")
+    edited_source = edited_source.convert("RGB").resize(background.size, Image.Resampling.LANCZOS)
+    mask = mask.convert("L").resize(background.size, Image.Resampling.BILINEAR)
+    return Image.composite(edited_source, background, mask)
 
 
 
@@ -1244,6 +1260,12 @@ def parse_args():
     p.add_argument("--placement_candidates", type=int, default=4)
     p.add_argument("--placement_steps", type=int, default=16)
     p.add_argument("--placement_guidance_scale", type=float, default=2.5)
+    p.add_argument(
+        "--planning_scene",
+        choices=["base", "current"],
+        default="base",
+        help="Plan every object from the clean base or from the cumulative edited scene",
+    )
     p.add_argument("--min_candidate_locality", type=float, default=0.50)
     p.add_argument("--max_candidate_border_fraction", type=float, default=0.35)
     p.add_argument(
@@ -1341,6 +1363,7 @@ def main():
         current_scene = generate_base_scene(args)
 
     current_scene.save(os.path.join(args.out_dir, "base_scene.png"))
+    base_scene = current_scene.copy()
 
     # Detector is generic and lazy-loaded. In 'difference' mode it is never loaded.
     detector: Optional[GenericDetector] = None
@@ -1362,6 +1385,7 @@ def main():
     print(f"objects: {[j.name for j in jobs]}")
     print(f"mask backend: {args.mask_backend}")
     print(f"placement candidates/object: {args.placement_candidates}")
+    print(f"planning scene: {args.planning_scene}")
     print("prompt strategy: short CLIP prompt + detailed T5 prompt_2")
 
     for step, job in enumerate(jobs, start=1):
@@ -1369,12 +1393,14 @@ def main():
         ensure_dir(step_dir)
         before = current_scene.copy()
         before.save(os.path.join(step_dir, "00_before.png"))
+        planning_scene = base_scene if args.planning_scene == "base" else before
+        planning_scene.save(os.path.join(step_dir, "00_planning_scene.png"))
 
         print(f"\n[{step}/{len(jobs)}] {job.name}")
         print("  Stage 1: generating natural generic placement candidates ...")
         best = generate_generic_candidates(
             planner_pipe=planner_pipe,
-            current_scene=before,
+            current_scene=planning_scene,
             job=job,
             previous_masks=accepted_masks,
             detector=detector,
@@ -1388,6 +1414,12 @@ def main():
         best.hard_mask.save(os.path.join(step_dir, "02_generic_object_mask_hard.png"))
         best.soft_mask.save(os.path.join(step_dir, "02_generic_object_mask_soft.png"))
         make_overlay(best.proposal, best.soft_mask).save(os.path.join(step_dir, "02_mask_overlay_on_generic.png"))
+
+        # When planning from the clean base, transfer only the selected generic
+        # object into the cumulative scene. This preserves earlier objects while
+        # retaining a visible pose/placement anchor for the reference inpaint pass.
+        generic_anchor_scene = composite_masked_edit(before, best.proposal, best.soft_mask)
+        generic_anchor_scene.save(os.path.join(step_dir, "02_generic_anchor_on_current.png"))
 
         replace_hard, replace_soft = replacement_envelope(
             best.hard_mask,
@@ -1414,7 +1446,7 @@ def main():
 
         replaced, replace_short, replace_long = replace_with_reference(
             inpaint_pipe=inpaint_pipe,
-            generic_scene=best.proposal,
+            generic_scene=generic_anchor_scene,
             current_scene=before,
             job=job,
             reference=reference,
@@ -1477,6 +1509,7 @@ def main():
             "box": best.box,
             "candidate_valid": best.valid,
             "final_mask_area_fraction": mask_area_fraction(final_mask),
+            "planning_scene": args.planning_scene,
         }
         save_json(step_record, os.path.join(step_dir, "step_summary.json"))
         summary.append(step_record)
