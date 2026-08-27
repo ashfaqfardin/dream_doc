@@ -42,22 +42,35 @@ class Probe:
   self.tr,self.layers,self.steps,self.labels,self.block=tr,layers,steps,labels,block;self.step=-1;self.layer=-1;self.layout=None;self.rows=[];self.orig=F.scaled_dot_product_attention;self.h=[]
   self.h.append(tr.register_forward_pre_hook(self.pre,with_kwargs=True));bs=list(tr.transformer_blocks)+list(getattr(tr,'single_transformer_blocks',[]))
   for i,b in enumerate(bs):self.h+=[b.register_forward_pre_hook(lambda m,a,k,j=i:setattr(self,'layer',j),with_kwargs=True),b.register_forward_hook(lambda m,a,o:setattr(self,'layer',-1))]
-  F.scaled_dot_product_attention=self.sdpa
+ F.scaled_dot_product_attention=self.sdpa
  def pre(self,m,a,k):
   self.step+=1;h=k.get('hidden_states');e=k.get('encoder_hidden_states');t=k.get('timestep');self.time=float(t.flatten()[0].cpu()) if t is not None else 0
   if h is not None:
    if h.shape[1]%3:raise RuntimeError('unexpected Kontext token packing')
    self.layout=(e.shape[1],h.shape[1]//3)
  def sdpa(self,*a,**kw):
-  q=a[0];k=a[1];v=a[2]
+  # PyTorch accepts both positional and keyword-only SDPA calls. Recent
+  # Diffusers attention_dispatch uses the latter.
+  q=a[0] if len(a)>0 else kw.get('query');k=a[1] if len(a)>1 else kw.get('key');v=a[2] if len(a)>2 else kw.get('value')
+  if q is None or k is None or v is None:return self.orig(*a,**kw)
   if self.layout and self.layer in self.layers and self.step in self.steps and q.shape[-2]==self.layout[0]+3*self.layout[1]:
    nt,ni=self.layout;sl={'text':slice(0,nt),'target':slice(nt,nt+ni),self.labels[0]:slice(nt+ni,nt+2*ni),self.labels[1]:slice(nt+2*ni,nt+3*ni)}
-   scale=q.shape[-1]**-.5;scores=q[:,:,sl['target']].float()@k.float().transpose(-2,-1)*scale
+   supplied_scale=kw.get('scale');scale=float(supplied_scale) if supplied_scale is not None else q.shape[-1]**-.5
    if self.block:
-    scores[:,:,:,sl[self.block]]=torch.finfo(scores.dtype).min;w=torch.softmax(scores,-1).to(v.dtype);full=self.orig(q,k,v,*a[3:],**kw);full[:,:,sl['target']]=w@v;return full
-   w=torch.softmax(scores,-1)
-   for src,r in sl.items():
-    p=w[:,:,:,r];mass=p.sum(-1).mean((0,2));z=p/p.sum(-1,keepdim=True).clamp_min(1e-9);ent=(-(z*z.clamp_min(1e-9).log()).sum(-1)/math.log(max(2,p.shape[-1]))).mean((0,2))
+    scores=q[:,:,sl['target']].float()@k.float().transpose(-2,-1)*scale
+    scores[:,:,:,sl[self.block]]=torch.finfo(scores.dtype).min;w=torch.softmax(scores,-1).to(v.dtype)
+    if len(a)>=3: full=self.orig(*a,**kw)
+    else:
+     forwarded=dict(kw);forwarded.update(query=q,key=k,value=v);full=self.orig(**forwarded)
+    full[:,:,sl['target']]=w@v;return full
+   # Reduce in query chunks; never materialize the full target-by-source matrix.
+   totals={src:torch.zeros(q.shape[1],device=q.device) for src in sl};ents={src:torch.zeros(q.shape[1],device=q.device) for src in sl};count=0
+   for lo in range(0,ni,128):
+    scores=q[:,:,sl['target'],:][:,:,lo:lo+128].float()@k.float().transpose(-2,-1)*scale;w=torch.softmax(scores,-1);count+=w.shape[2]
+    for src,r in sl.items():
+     p=w[:,:,:,r];totals[src]+=p.sum(-1).sum((0,2));z=p/p.sum(-1,keepdim=True).clamp_min(1e-9);ents[src]+=(-(z*z.clamp_min(1e-9).log()).sum(-1)/math.log(max(2,p.shape[-1]))).sum((0,2))
+   for src in sl:
+    mass=totals[src]/count;ent=ents[src]/count
     for head in range(len(mass)):self.rows.append({'step':self.step,'timestep':self.time,'layer':self.layer,'head':head,'source':src,'mass':float(mass[head]),'entropy':float(ent[head])})
   return self.orig(*a,**kw)
  def close(self):F.scaled_dot_product_attention=self.orig;[x.remove() for x in self.h]
