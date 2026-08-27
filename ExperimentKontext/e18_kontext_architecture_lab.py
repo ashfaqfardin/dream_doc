@@ -42,7 +42,7 @@ class Probe:
   self.tr,self.layers,self.steps,self.labels,self.block=tr,layers,steps,labels,block;self.step=-1;self.layer=-1;self.layout=None;self.rows=[];self.orig=F.scaled_dot_product_attention;self.h=[]
   self.h.append(tr.register_forward_pre_hook(self.pre,with_kwargs=True));bs=list(tr.transformer_blocks)+list(getattr(tr,'single_transformer_blocks',[]))
   for i,b in enumerate(bs):self.h+=[b.register_forward_pre_hook(lambda m,a,k,j=i:setattr(self,'layer',j),with_kwargs=True),b.register_forward_hook(lambda m,a,o:setattr(self,'layer',-1))]
- F.scaled_dot_product_attention=self.sdpa
+  F.scaled_dot_product_attention=self.sdpa
  def pre(self,m,a,k):
   self.step+=1;h=k.get('hidden_states');e=k.get('encoder_hidden_states');t=k.get('timestep');self.time=float(t.flatten()[0].cpu()) if t is not None else 0
   if h is not None:
