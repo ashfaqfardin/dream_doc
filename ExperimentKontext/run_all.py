@@ -161,6 +161,15 @@ EXPERIMENTS = [
                  "--out_dir",     "results/e18_architecture_lab"],
     },
     {
+        "id":   "e19",
+        "name": "SAM Reference Inpaint Chain  (~3 hr)",
+        "script": os.path.join(BASE, "e19_sam_reference_inpaint_chain.py"),
+        "args": ["--base_image",   SCENE,
+                 "--objects_json", os.path.join(BASE, "e15_objects.json"),
+                 "--out_dir",      "results/e19_sam_reference_inpaint",
+                 "--cpu_offload"],
+    },
+    {
         "id":   "e15",
         "name": "Generic Place-Then-Replace Pipeline  (~2 hr)",
         "script": os.path.join(BASE, "e15_generic_place_then_replace_pipeline.py"),
