@@ -152,6 +152,15 @@ EXPERIMENTS = [
                  "--cpu_offload"],
     },
     {
+        "id":   "e18",
+        "name": "Kontext Architecture Lab  (~1 hr)",
+        "script": os.path.join(BASE, "e18_kontext_architecture_lab.py"),
+        "args": ["--scene",       SCENE,
+                 "--reference",   os.path.join(OBJ_DIR, "obj_bicycle.png"),
+                 "--object_name", "bicycle",
+                 "--out_dir",     "results/e18_architecture_lab"],
+    },
+    {
         "id":   "e15",
         "name": "Generic Place-Then-Replace Pipeline  (~2 hr)",
         "script": os.path.join(BASE, "e15_generic_place_then_replace_pipeline.py"),
