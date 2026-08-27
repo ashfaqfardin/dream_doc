@@ -355,7 +355,9 @@ def insertion_prompts(job: ObjectJob, candidate_index: int, candidate_count: int
         "Examine the scene and choose a visually natural, physically plausible location. "
         "Infer the appropriate supporting surface or floor contact, depth, scale, perspective, "
         "orientation, occlusion and free space from the image itself. Avoid floating, clipping, "
-        "blocking important scene elements, or arbitrary placement. Preserve everything unrelated. "
+        "blocking important scene elements, or arbitrary placement. Keep the complete object and all "
+        "of its parts comfortably inside the image with visible clearance from every frame edge. "
+        "Preserve everything unrelated. "
     )
     if job.placement_hint:
         long += f"Placement preference: {job.placement_hint.strip()} "
@@ -382,7 +384,8 @@ def replacement_prompts(job: ObjectJob) -> Tuple[str, str]:
         f"Replace only the masked generic {job.name} with the exact object shown in the reference image. "
         + pose_text
         + "Transfer identity from the reference: colors, materials, texture, distinctive design, "
-        "proportions and characteristic parts. Preserve the surrounding scene. "
+        "proportions and characteristic parts. Integrate it physically with correct floor or surface "
+        "contact, occlusion, local illumination, and a natural contact shadow. Preserve the surrounding scene. "
     )
     if job.pose_instruction:
         long += f"Keep this pose/orientation requirement: {job.pose_instruction.strip()} "
@@ -505,23 +508,38 @@ def box_mask(box: Tuple[int, int, int, int], size: Tuple[int, int]) -> Image.Ima
     return mask
 
 
-def replacement_envelope(
+def build_edit_zones(
     object_mask: Image.Image,
     size: Tuple[int, int],
-    expand_frac: float,
+    structure_expand_frac: float,
+    interaction_expand_frac: float,
+    interaction_strength: float,
     feather_px: float,
-) -> Tuple[Image.Image, Image.Image]:
-    """Grow the SAM silhouette organically without exposing its whole bounding box."""
+) -> Tuple[Image.Image, Image.Image, Image.Image, Image.Image]:
+    """Build core, structural, interaction, and compositing masks.
+
+    The model may repaint the full interaction region, but the generated pixels are
+    blended fully only in the structural region and weakly in the outer halo. This
+    lets it create contact shadows and local lighting without freely rewriting the room.
+    """
     bbox = mask_bbox(object_mask)
     if bbox is None:
-        raise RuntimeError("Cannot build a replacement envelope from an empty object mask")
+        raise RuntimeError("Cannot build edit zones from an empty object mask")
     bw, bh = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    radius = max(1, int(round(max(bw, bh) * float(expand_frac))))
-    hard = dilate_mask_image(object_mask.resize(size, Image.Resampling.NEAREST), radius)
-    soft = hard
+    scale = max(bw, bh)
+    core = object_mask.convert("L").resize(size, Image.Resampling.NEAREST)
+    structure_radius = max(1, int(round(scale * float(structure_expand_frac))))
+    interaction_radius = max(1, int(round(scale * float(interaction_expand_frac))))
+    structure = dilate_mask_image(core, structure_radius)
+    interaction = dilate_mask_image(structure, interaction_radius)
+
+    core_arr = np.asarray(structure, dtype=np.float32) / 255.0
+    halo_arr = np.asarray(interaction, dtype=np.float32) / 255.0
+    composite_arr = core_arr + (halo_arr - core_arr) * float(np.clip(interaction_strength, 0.0, 1.0))
+    composite = Image.fromarray(np.uint8(np.clip(composite_arr, 0.0, 1.0) * 255), mode="L")
     if feather_px > 0:
-        soft = hard.filter(ImageFilter.GaussianBlur(radius=float(feather_px)))
-    return hard, soft
+        composite = composite.filter(ImageFilter.GaussianBlur(radius=float(feather_px)))
+    return core, structure, interaction, composite
 
 
 def isolate_reference_object(
@@ -1257,7 +1275,12 @@ def parse_args():
     p.add_argument("--base_guidance_scale", type=float, default=3.5)
 
     # Placement candidates.
-    p.add_argument("--placement_candidates", type=int, default=4)
+    p.add_argument(
+        "--placement_candidates",
+        type=int,
+        default=1,
+        help="One candidate gives the minimum two-pass placement-then-inpaint workflow",
+    )
     p.add_argument("--placement_steps", type=int, default=16)
     p.add_argument("--placement_guidance_scale", type=float, default=2.5)
     p.add_argument(
@@ -1267,7 +1290,12 @@ def parse_args():
         help="Plan every object from the clean base or from the cumulative edited scene",
     )
     p.add_argument("--min_candidate_locality", type=float, default=0.50)
-    p.add_argument("--max_candidate_border_fraction", type=float, default=0.35)
+    p.add_argument(
+        "--max_candidate_border_fraction",
+        type=float,
+        default=0.05,
+        help="Reject anchors with too much object mask in the outer 3%% frame band",
+    )
     p.add_argument(
         "--require_detection",
         action=argparse.BooleanOptionalAction,
@@ -1326,6 +1354,18 @@ def parse_args():
         type=float,
         default=0.10,
         help="Organic dilation around the SAM silhouette for forming different geometry",
+    )
+    p.add_argument(
+        "--interaction_halo_expand_frac",
+        type=float,
+        default=0.08,
+        help="Additional editable ring for contact shadows, reflections, and local lighting",
+    )
+    p.add_argument(
+        "--interaction_halo_strength",
+        type=float,
+        default=0.35,
+        help="How strongly generated pixels from the outer interaction ring are composited",
     )
 
     # Refinement.
@@ -1421,16 +1461,20 @@ def main():
         generic_anchor_scene = composite_masked_edit(before, best.proposal, best.soft_mask)
         generic_anchor_scene.save(os.path.join(step_dir, "02_generic_anchor_on_current.png"))
 
-        replace_hard, replace_soft = replacement_envelope(
+        identity_core, structure_mask, interaction_mask, interaction_composite = build_edit_zones(
             best.hard_mask,
             best.proposal.size,
             args.replacement_mask_expand_frac,
+            args.interaction_halo_expand_frac,
+            args.interaction_halo_strength,
             args.mask_feather_px,
         )
-        replace_hard.save(os.path.join(step_dir, "02_replacement_mask_hard.png"))
-        replace_soft.save(os.path.join(step_dir, "02_replacement_mask_soft.png"))
-        make_overlay(best.proposal, replace_soft).save(
-            os.path.join(step_dir, "02_replacement_mask_overlay.png")
+        identity_core.save(os.path.join(step_dir, "02_identity_core_mask.png"))
+        structure_mask.save(os.path.join(step_dir, "02_structure_mask.png"))
+        interaction_mask.save(os.path.join(step_dir, "02_interaction_mask.png"))
+        interaction_composite.save(os.path.join(step_dir, "02_interaction_composite_mask.png"))
+        make_overlay(best.proposal, interaction_composite).save(
+            os.path.join(step_dir, "02_edit_zones_overlay.png")
         )
 
         print(f"    selected candidate {best.index}: score={best.score:.3f}")
@@ -1450,8 +1494,8 @@ def main():
             current_scene=before,
             job=job,
             reference=reference,
-            hard_mask=replace_hard,
-            soft_mask=replace_soft,
+            hard_mask=interaction_mask,
+            soft_mask=interaction_composite,
             args=args,
             seed=best.seed + 5000,
         )
@@ -1470,8 +1514,10 @@ def main():
                 current_scene=before,
                 job=job,
                 reference=reference,
-                hard_mask=replace_hard,
-                soft_mask=replace_soft,
+                hard_mask=structure_mask,
+                soft_mask=structure_mask.filter(
+                    ImageFilter.GaussianBlur(radius=float(args.mask_feather_px))
+                ) if args.mask_feather_px > 0 else structure_mask,
                 args=args,
                 seed=best.seed + 9000,
             )
@@ -1481,7 +1527,7 @@ def main():
                 f.write(refine_long)
 
         final.save(os.path.join(step_dir, "04_final.png"))
-        final_mask = segment_final_object(final, replace_hard, segmenter, args)
+        final_mask = segment_final_object(final, structure_mask, segmenter, args)
         final_soft_mask = final_mask
         if args.mask_feather_px > 0:
             final_soft_mask = final_mask.filter(
@@ -1509,6 +1555,9 @@ def main():
             "box": best.box,
             "candidate_valid": best.valid,
             "final_mask_area_fraction": mask_area_fraction(final_mask),
+            "identity_core_area_fraction": mask_area_fraction(identity_core),
+            "structure_area_fraction": mask_area_fraction(structure_mask),
+            "interaction_area_fraction": mask_area_fraction(interaction_mask),
             "planning_scene": args.planning_scene,
         }
         save_json(step_record, os.path.join(step_dir, "step_summary.json"))
