@@ -166,8 +166,7 @@ EXPERIMENTS = [
         "script": os.path.join(BASE, "e19_sam_reference_inpaint_chain.py"),
         "args": ["--base_image",   SCENE,
                  "--objects_json", os.path.join(BASE, "e15_objects.json"),
-                 "--out_dir",      "results/e19_sam_reference_inpaint",
-                 "--cpu_offload"],
+                 "--out_dir",      "results/e19_sam_reference_inpaint"],
     },
     {
         "id":   "e15",

@@ -739,7 +739,7 @@ class SAM2BoxSegmenter:
     ) -> Image.Image:
         self._load()
         assert self._predictor is not None
-        self._predictor.set_image(np.asarray(image.convert("RGB")))
+        self._predictor.set_image(np.array(image.convert("RGB"), dtype=np.uint8, copy=True))
         masks, scores, _ = self._predictor.predict(
             box=np.asarray(box, dtype=np.float32), multimask_output=True
         )
@@ -755,7 +755,7 @@ class SAM2BoxSegmenter:
             changed = float(difference[mask].mean()) if mask.any() else 0.0
             combined_scores.append(float(sam_score) + 0.35 * changed)
         best = masks[int(np.argmax(combined_scores))]
-        return Image.fromarray(np.uint8(best) * 255, mode="L")
+        return Image.fromarray(np.uint8(best) * 255)
 
 
 # =============================================================================
@@ -833,14 +833,14 @@ def place_pipe_on_device(pipe, args):
 
 def load_planner_pipe(args):
     dtype = torch_dtype_from_name(args.torch_dtype)
-    pipe = FluxKontextPipeline.from_pretrained(args.kontext_model_id, torch_dtype=dtype)
+    pipe = FluxKontextPipeline.from_pretrained(args.kontext_model_id, dtype=dtype)
     return place_pipe_on_device(pipe, args)
 
 
 
 def load_inpaint_pipe(args):
     dtype = torch_dtype_from_name(args.torch_dtype)
-    pipe = FluxKontextInpaintPipeline.from_pretrained(args.kontext_model_id, torch_dtype=dtype)
+    pipe = FluxKontextInpaintPipeline.from_pretrained(args.kontext_model_id, dtype=dtype)
     return place_pipe_on_device(pipe, args)
 
 
