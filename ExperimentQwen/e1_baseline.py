@@ -93,7 +93,7 @@ def main():
  p=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
  p.add_argument('--sketch_dir',default='KontextPipeline/sketch');p.add_argument('--out_dir',default='results/qwen_e1_baseline')
  p.add_argument('--model_id',default='Qwen/Qwen-Image-Edit-2509');p.add_argument('--lightning_repo',default=LIGHTNING_REPO);p.add_argument('--lightning_weight',default=LIGHTNING_WEIGHT);p.add_argument('--lora_scale',type=float,default=1.0)
- p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--true_cfg_scale',type=float,default=1.0);p.add_argument('--negative_prompt',default=' ')
+ p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--object_seed',type=int,default=1337,help='Fixed seed reused for every sketch-to-object generation');p.add_argument('--true_cfg_scale',type=float,default=1.0);p.add_argument('--negative_prompt',default=' ')
  p.add_argument('--base_prompt',default='Create a photorealistic empty modern living room with warm neutral walls, wooden floor, natural daylight, realistic perspective, and several physically plausible open areas for furniture and objects. Keep the room uncluttered and completely empty.')
  args=p.parse_args();out=Path(args.out_dir);objects_dir=out/'objects';steps_dir=out/'steps';objects_dir.mkdir(parents=True,exist_ok=True);steps_dir.mkdir(exist_ok=True)
  random.seed(args.seed);np.random.seed(args.seed);torch.manual_seed(args.seed);save_json(vars(args),out/'config.json')
@@ -103,7 +103,7 @@ def main():
  for index,(name,path) in enumerate(tqdm(sketches,desc='Generating objects',unit='object'),1):
   sketch=fit(Image.open(path),(args.width,args.height));sketch.save(objects_dir/f'{index:02d}_{name}_sketch.png')
   prompt=(f'Image 1 is a sketch of a {name}. Convert it into one photorealistic {name}. Preserve the sketch geometry, pose, proportions, viewpoint and every visible component. Use realistic materials, coherent colors and studio lighting. Show the complete object centered on a plain clean white background. Add no other objects, labels, frames, floor or scenery.')
-  seed=args.seed+index*1000;image=infer(pipe,[sketch],prompt,args,seed);target=objects_dir/f'{index:02d}_{name}.png';image.save(target);results.append(ObjectResult(name,str(path),str(target),seed))
+  seed=args.object_seed;image=infer(pipe,[sketch],prompt,args,seed);target=objects_dir/f'{index:02d}_{name}.png';image.save(target);results.append(ObjectResult(name,str(path),str(target),seed))
  save_json([asdict(x) for x in results],out/'objects.json')
 
  print('\n=== PHASE 2: BLANK CANVAS -> BASE ROOM ===')
