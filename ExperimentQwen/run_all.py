@@ -34,6 +34,20 @@ EXPERIMENTS = [
         ],
         "requires": [DEFAULT_SKETCH_DIR],
     },
+    {
+        "id": "e2",
+        "name": "Counterfactual Placement + SAM Collage-and-Repaint",
+        "script": HERE / "e2_sam_collage_repaint.py",
+        "args": [
+            "--e1_dir", str(ROOT / "results" / "qwen_e1_baseline"),
+            "--placement_backend", "denoise_delta",
+            "--out_dir", str(ROOT / "results" / "qwen_e2_sam_collage"),
+        ],
+        "requires": [
+            ROOT / "results" / "qwen_e1_baseline" / "base.png",
+            ROOT / "results" / "qwen_e1_baseline" / "objects.json",
+        ],
+    },
 ]
 
 
