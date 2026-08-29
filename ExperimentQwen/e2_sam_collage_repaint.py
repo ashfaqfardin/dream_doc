@@ -11,7 +11,7 @@ from typing import Dict,Tuple
 import numpy as np
 from PIL import Image,ImageChops,ImageDraw,ImageFilter
 from tqdm.auto import tqdm
-from e1_baseline import load_pipe,infer,make_generator,save_json
+from e1_baseline import discover_sketches,fit,load_pipe,infer,make_generator,save_json
 
 # Category-size priors constrain scale, but never prescribe position.  Values
 # are fractions of image height and can be overridden from the command line.
@@ -139,19 +139,42 @@ def probe_placement(pipe,scene,name,cutout,occupied,args,seed,path):
  heat=spatial_energy(a-b,args.width,args.height);box,heat=box_from_heatmap(heat,name,cutout,scene.size,args,occupied);save_heatmap(scene,heat,box,path)
  return box,{'latent_shape':list(a.shape),'heat_min':float(heat.min()),'heat_max':float(heat.max()),'box':list(box)}
 
+def generate_setup(pipe,args,setup_dir):
+ """Create E2's own references and base scene when no E1 cache is supplied."""
+ objects_dir=setup_dir/'objects';objects_dir.mkdir(parents=True,exist_ok=True)
+ objects=[]
+ print('\n=== E2 SETUP: SKETCH -> PHOTOREALISTIC REFERENCES ===')
+ for index,(name,path) in enumerate(tqdm(discover_sketches(args.sketch_dir),desc='Generating E2 references',unit='object'),1):
+  sketch=fit(Image.open(path),(args.width,args.height))
+  prompt=(f'Image 1 is a sketch of a {name}. Convert it into one photorealistic {name}. '
+          'Preserve its geometry, pose, proportions, viewpoint and visible components. Use realistic materials. '
+          'Show the complete object centered on a plain clean white background with no other objects, labels or scenery.')
+  image=infer(pipe,[sketch],prompt,args,args.seed+index*1000);target=objects_dir/f'{index:02d}_{name}.png';image.save(target)
+  objects.append({'name':name,'sketch':str(path),'image':str(target),'seed':args.seed+index*1000})
+ save_json(objects,setup_dir/'objects.json')
+ print('\n=== E2 SETUP: GENERATING BASE SCENE ===')
+ blank=Image.new('RGB',(args.width,args.height),'white')
+ base=infer(pipe,[blank],'Replace the blank Image 1 with this scene: '+args.base_prompt+' Do not leave a white border or blank canvas.',args,args.seed+50000)
+ base.save(setup_dir/'base.png')
+ return base,objects
+
 def main():
  p=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
- p.add_argument('--e1_dir',default='results/qwen_e1_baseline');p.add_argument('--placements',default=str(Path(__file__).with_name('e2_placements.json')));p.add_argument('--out_dir',default='results/qwen_e2_sam_collage')
+ p.add_argument('--e1_dir',default='results/qwen_e1_baseline',help='Optional E1 cache; E2 generates its own setup if these files are absent');p.add_argument('--sketch_dir',default='KontextPipeline/sketch');p.add_argument('--placements',default=str(Path(__file__).with_name('e2_placements.json')));p.add_argument('--out_dir',default='results/qwen_e2_sam_collage')
+ p.add_argument('--base_prompt',default='Create a photorealistic empty modern living room with warm neutral walls, wooden floor, natural daylight, realistic perspective, and several physically plausible open areas for furniture and objects. Keep the room uncluttered and completely empty.')
  p.add_argument('--placement_backend',choices=('denoise_delta','manual'),default='denoise_delta');p.add_argument('--probe_steps',type=int,default=4);p.add_argument('--probe_quantile',type=float,default=.88);p.add_argument('--probe_blur',type=float,default=1.2);p.add_argument('--box_margin',type=int,default=24);p.add_argument('--occupancy_margin',type=int,default=24);p.add_argument('--default_object_height',type=float,default=.25);p.add_argument('--object_height_priors',default=None,help='Optional JSON mapping object names to image-height fractions')
  p.add_argument('--model_id',default='Qwen/Qwen-Image-Edit-2509');p.add_argument('--lightning_repo',default='lightx2v/Qwen-Image-Lightning');p.add_argument('--lightning_weight',default='Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors');p.add_argument('--lora_scale',type=float,default=1)
  p.add_argument('--sam_model_id',default='facebook/sam2-hiera-small');p.add_argument('--sam_device',default='cpu');p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--true_cfg_scale',type=float,default=1);p.add_argument('--negative_prompt',default=' ')
  p.add_argument('--background_threshold',type=float,default=24);p.add_argument('--object_scale',type=float,default=.92);p.add_argument('--boundary_px',type=int,default=12);p.add_argument('--interaction_px',type=int,default=28);p.add_argument('--feather_px',type=float,default=5);p.add_argument('--preserve_reference_core',action='store_true');p.add_argument('--core_erode_px',type=int,default=3);args=p.parse_args()
  out=Path(args.out_dir);cutout_dir=out/'cutouts';step_dir=out/'steps';cutout_dir.mkdir(parents=True,exist_ok=True);step_dir.mkdir(exist_ok=True);save_json(vars(args),out/'config.json')
- e1=Path(args.e1_dir);base_path=e1/'base.png';objects_path=e1/'objects.json'
- if not base_path.is_file() or not objects_path.is_file():raise FileNotFoundError(f'E2 requires {base_path} and {objects_path}; run E1 first')
- objects=json.load(open(objects_path,encoding='utf8'));placements=json.load(open(args.placements,encoding='utf8')) if args.placement_backend=='manual' else {};size=(args.width,args.height)
- current=Image.open(base_path).convert('RGB').resize(size);current.save(out/'base.png')
- loading=tqdm(total=2,desc='Loading SAM2',unit='model');sam=SAM(args.sam_model_id,args.sam_device);loading.update();loading.set_description('Loading Qwen');pipe=load_pipe(args);loading.update();loading.close()
+ e1=Path(args.e1_dir);base_path=e1/'base.png';objects_path=e1/'objects.json';size=(args.width,args.height)
+ loading=tqdm(total=2,desc='Loading Qwen',unit='model');pipe=load_pipe(args);loading.update()
+ if base_path.is_file() and objects_path.is_file():
+  print(f'Reusing E1 setup from {e1}');objects=json.load(open(objects_path,encoding='utf8'));current=Image.open(base_path).convert('RGB').resize(size)
+ else:
+  setup_dir=out/'setup';current,objects=generate_setup(pipe,args,setup_dir);current=current.resize(size)
+ loading.set_description('Loading SAM2');sam=SAM(args.sam_model_id,args.sam_device);loading.update();loading.close()
+ placements=json.load(open(args.placements,encoding='utf8')) if args.placement_backend=='manual' else {};current.save(out/'base.png')
  cutouts={}
  for item in tqdm(objects,desc='SAM reference cutouts',unit='object'):
   reference=Image.open(item['image']).convert('RGB').resize(size);cut=sam.cutout(item['name'],reference,args.background_threshold);cut.rgb.save(cutout_dir/f"{item['name']}_rgb.png");cut.alpha.save(cutout_dir/f"{item['name']}_alpha.png");cutouts[item['name']]=cut

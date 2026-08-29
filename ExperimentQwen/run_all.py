@@ -19,6 +19,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 DEFAULT_SKETCH_DIR = ROOT / "KontextPipeline" / "sketch"
+DEFAULT_E1_DIR = ROOT / "results" / "qwen_e1_baseline"
 
 
 # Add future experiments here. Arguments should not include --device because the
@@ -39,13 +40,12 @@ EXPERIMENTS = [
         "name": "Counterfactual Placement + SAM Collage-and-Repaint",
         "script": HERE / "e2_sam_collage_repaint.py",
         "args": [
-            "--e1_dir", str(ROOT / "results" / "qwen_e1_baseline"),
+            "--e1_dir", str(DEFAULT_E1_DIR),
             "--placement_backend", "denoise_delta",
             "--out_dir", str(ROOT / "results" / "qwen_e2_sam_collage"),
         ],
         "requires": [
-            ROOT / "results" / "qwen_e1_baseline" / "base.png",
-            ROOT / "results" / "qwen_e1_baseline" / "objects.json",
+            DEFAULT_SKETCH_DIR,
         ],
     },
 ]
@@ -58,6 +58,10 @@ def parse_args():
     parser.add_argument("--only", nargs="+", metavar="ID", help="Run only these IDs, e.g. --only e1 e2")
     parser.add_argument("--skip", nargs="+", metavar="ID", default=[], help="Skip these experiment IDs")
     parser.add_argument("--device", default="cuda", help="Device forwarded to each experiment")
+    parser.add_argument(
+        "--e1_dir", type=Path,
+        help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
+    )
     parser.add_argument(
         "--continue_on_error", action="store_true",
         help="Continue with later experiments after a failure",
@@ -86,6 +90,30 @@ def validate(experiment):
     return missing
 
 
+def resolve_e1_dependency(experiment, requested_dir=None):
+    """Resolve E1 outputs from runner and direct-script working directories."""
+    if experiment["id"] != "e2":
+        return
+    candidates = []
+    if requested_dir is not None:
+        candidates.append(requested_dir.resolve())
+    candidates.extend([
+        DEFAULT_E1_DIR,
+        HERE / "results" / "qwen_e1_baseline",
+    ])
+    # Preserve order while removing duplicate absolute paths.
+    candidates = list(dict.fromkeys(path.resolve() for path in candidates))
+    chosen = next(
+        (path for path in candidates if (path / "base.png").is_file() and (path / "objects.json").is_file()),
+        candidates[0],
+    )
+    position = experiment["args"].index("--e1_dir") + 1
+    experiment["args"][position] = str(chosen)
+    complete = (chosen / "base.png").is_file() and (chosen / "objects.json").is_file()
+    experiment["requires"] = [] if complete else [DEFAULT_SKETCH_DIR]
+    experiment["e1_candidates"] = candidates
+
+
 def format_duration(seconds):
     minutes, sec = divmod(int(seconds), 60)
     hours, minutes = divmod(minutes, 60)
@@ -108,6 +136,7 @@ def main():
     failures = []
     total_started = time.perf_counter()
     for experiment in selected:
+        resolve_e1_dependency(experiment, args.e1_dir)
         missing = validate(experiment)
         print("\n" + "=" * 72)
         print(f"  {experiment['id'].upper()}: {experiment['name']}")
@@ -116,6 +145,12 @@ def main():
             print("Missing prerequisites:")
             for path in missing:
                 print(f"  - {path}")
+            if experiment["id"] == "e2":
+                print("\nNo reusable E1 setup was found. E2 can generate its own setup, but its sketch directory is also missing.")
+                print("Checked optional E1 caches:")
+                for directory in experiment.get("e1_candidates", []):
+                    print(f"  - {directory}")
+                print("Provide KontextPipeline/sketch, or pass `--e1_dir PATH` to an existing E1 output.")
             failures.append(experiment["id"])
             if not args.continue_on_error:
                 break
