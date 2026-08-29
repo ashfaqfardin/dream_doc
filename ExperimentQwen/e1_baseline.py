@@ -4,7 +4,8 @@ Uses Qwen-Image-Edit-2509 multi-image editing with the official LightX2V
 8-step Lightning LoRA. This is intentionally a mask-free baseline.
 """
 from __future__ import annotations
-import argparse,gc,json,math,os,random
+import argparse,gc,json,math,os,random,warnings
+from importlib.metadata import PackageNotFoundError,version
 from dataclasses import dataclass,asdict
 from pathlib import Path
 from typing import List
@@ -40,11 +41,38 @@ def lightning_scheduler():
   'use_exponential_sigmas':False,'use_karras_sigmas':False}
  return FlowMatchEulerDiscreteScheduler.from_config(config)
 
+def prepare_peft_lora_backend():
+ """Bypass PEFT's optional TorchAO dispatcher when an obsolete copy is installed.
+
+ The E1 base is bf16, not TorchAO-quantized. PEFT 0.17+ nevertheless probes its
+ TorchAO dispatcher first; torchao 0.10 raises instead of returning False. In
+ that case the correct behavior is to skip that optional dispatcher and let
+ PEFT use its standard torch.nn.Linear LoRA implementation.
+ """
+ try:
+  installed=version('torchao')
+ except PackageNotFoundError:
+  return
+ try:
+  from packaging.version import Version
+  incompatible=Version(installed)<=Version('0.16.0')
+ except Exception:
+  incompatible=installed.startswith(('0.0','0.1'))
+ if not incompatible:
+  return
+ try:
+  from peft.tuners.lora import torchao as peft_torchao
+  peft_torchao.is_torchao_available=lambda:False
+  warnings.warn(f'torchao {installed} is incompatible with PEFT LoRA loading; E1 is bf16, so the optional TorchAO dispatcher was disabled.')
+ except Exception as exc:
+  raise RuntimeError(f'Incompatible torchao {installed}. Run `pip uninstall -y torchao` or install torchao>0.16.0.') from exc
+
 def load_pipe(args):
  from diffusers import QwenImageEditPlusPipeline
  stages=tqdm(total=3,desc='Loading Qwen-Edit-2509',unit='stage',dynamic_ncols=True)
  pipe=QwenImageEditPlusPipeline.from_pretrained(args.model_id,scheduler=lightning_scheduler(),dtype=torch.bfloat16)
  stages.update();stages.set_description('Loading 8-step Lightning LoRA')
+ prepare_peft_lora_backend()
  pipe.load_lora_weights(args.lightning_repo,weight_name=args.lightning_weight,adapter_name='lightning')
  pipe.set_adapters(['lightning'],adapter_weights=[args.lora_scale]);stages.update();stages.set_description('Moving pipeline to GPU')
  pipe.to(args.device);pipe.set_progress_bar_config(disable=False);stages.update();stages.set_description('Qwen pipeline ready');stages.close()

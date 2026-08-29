@@ -4,4 +4,5 @@ accelerate
 Pillow
 numpy
 tqdm
+packaging
 git+https://github.com/huggingface/diffusers
