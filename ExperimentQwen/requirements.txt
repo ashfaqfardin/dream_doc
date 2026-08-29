@@ -1,0 +1,7 @@
+torch
+transformers
+accelerate
+Pillow
+numpy
+tqdm
+git+https://github.com/huggingface/diffusers
