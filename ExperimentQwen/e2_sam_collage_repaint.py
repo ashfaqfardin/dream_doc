@@ -4,7 +4,7 @@ Unlike E1, Qwen receives exactly one image per insertion. The reference object
 is already positioned in that image, eliminating scene/reference role collapse.
 """
 from __future__ import annotations
-import argparse,json,math,os
+import argparse,json,math,os,warnings
 from dataclasses import dataclass,asdict
 from pathlib import Path
 from typing import Dict,Tuple
@@ -34,7 +34,8 @@ def foreground_box(image,threshold):
 
 class SAM:
  def __init__(self,model_id,device):
-  from sam2.sam2_image_predictor import SAM2ImagePredictor
+  try:from sam2.sam2_image_predictor import SAM2ImagePredictor
+  except ModuleNotFoundError as exc:raise ModuleNotFoundError("SAM2 is not installed. Run `pip install git+https://github.com/facebookresearch/sam2.git`, then restart the runtime.") from exc
   self.predictor=SAM2ImagePredictor.from_pretrained(model_id,device=device)
  def cutout(self,name,image,threshold):
   box=foreground_box(image,threshold);self.predictor.set_image(np.array(image.convert('RGB'),dtype=np.uint8,copy=True))
@@ -42,6 +43,22 @@ class SAM:
   mask=np.asarray(masks)[int(np.asarray(scores).argmax())];alpha=Image.fromarray(np.uint8(mask)*255);tight=alpha.getbbox()
   if tight is None:raise RuntimeError(f'SAM returned empty mask for {name}')
   return Cutout(name,image.crop(tight),alpha.crop(tight),tuple(map(int,tight)))
+
+class DifferenceCutout:
+ """Fallback for E1/E2 references, which are generated on a plain background."""
+ def cutout(self,name,image,threshold):
+  box=foreground_box(image,threshold);a=np.asarray(image.convert('RGB'),dtype=np.int16);border=np.concatenate([a[0],a[-1],a[:,0],a[:,-1]],axis=0);bg=np.median(border,axis=0)
+  distance=np.sqrt(((a-bg)**2).sum(2));alpha=Image.fromarray(np.uint8(distance>threshold)*255).filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(1.0));tight=alpha.getbbox()
+  if tight is None:raise RuntimeError(f'Foreground extraction returned an empty mask for {name}')
+  return Cutout(name,image.crop(tight),alpha.crop(tight),tuple(map(int,tight)))
+
+def load_segmenter(args):
+ if args.mask_backend=='difference':return DifferenceCutout(),'difference'
+ try:return SAM(args.sam_model_id,args.sam_device),'sam2'
+ except ModuleNotFoundError:
+  if args.mask_backend=='sam2':raise
+  warnings.warn('SAM2 is unavailable; using the plain-background difference cutout fallback. Install SAM2 for more precise boundaries.')
+  return DifferenceCutout(),'difference'
 
 def place_cutout(cutout,box,size,scale):
  x0,y0,x1,y1=box;tw=max(1,int((x1-x0)*scale));th=max(1,int((y1-y0)*scale));ratio=min(tw/cutout.rgb.width,th/cutout.rgb.height)
@@ -164,19 +181,20 @@ def main():
  p.add_argument('--base_prompt',default='Create a photorealistic empty modern living room with warm neutral walls, wooden floor, natural daylight, realistic perspective, and several physically plausible open areas for furniture and objects. Keep the room uncluttered and completely empty.')
  p.add_argument('--placement_backend',choices=('denoise_delta','manual'),default='denoise_delta');p.add_argument('--probe_steps',type=int,default=4);p.add_argument('--probe_quantile',type=float,default=.88);p.add_argument('--probe_blur',type=float,default=1.2);p.add_argument('--box_margin',type=int,default=24);p.add_argument('--occupancy_margin',type=int,default=24);p.add_argument('--default_object_height',type=float,default=.25);p.add_argument('--object_height_priors',default=None,help='Optional JSON mapping object names to image-height fractions')
  p.add_argument('--model_id',default='Qwen/Qwen-Image-Edit-2509');p.add_argument('--lightning_repo',default='lightx2v/Qwen-Image-Lightning');p.add_argument('--lightning_weight',default='Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors');p.add_argument('--lora_scale',type=float,default=1)
- p.add_argument('--sam_model_id',default='facebook/sam2-hiera-small');p.add_argument('--sam_device',default='cpu');p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--true_cfg_scale',type=float,default=1);p.add_argument('--negative_prompt',default=' ')
+ p.add_argument('--mask_backend',choices=('auto','sam2','difference'),default='auto');p.add_argument('--sam_model_id',default='facebook/sam2-hiera-small');p.add_argument('--sam_device',default='cpu');p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--true_cfg_scale',type=float,default=1);p.add_argument('--negative_prompt',default=' ')
  p.add_argument('--background_threshold',type=float,default=24);p.add_argument('--object_scale',type=float,default=.92);p.add_argument('--boundary_px',type=int,default=12);p.add_argument('--interaction_px',type=int,default=28);p.add_argument('--feather_px',type=float,default=5);p.add_argument('--preserve_reference_core',action='store_true');p.add_argument('--core_erode_px',type=int,default=3);args=p.parse_args()
  out=Path(args.out_dir);cutout_dir=out/'cutouts';step_dir=out/'steps';cutout_dir.mkdir(parents=True,exist_ok=True);step_dir.mkdir(exist_ok=True);save_json(vars(args),out/'config.json')
  e1=Path(args.e1_dir);base_path=e1/'base.png';objects_path=e1/'objects.json';size=(args.width,args.height)
- loading=tqdm(total=2,desc='Loading Qwen',unit='model');pipe=load_pipe(args);loading.update()
+ # Resolve segmentation first so a missing optional dependency never appears
+ # after the expensive Qwen load.
+ loading=tqdm(total=2,desc='Loading segmentation',unit='model');sam,active_mask_backend=load_segmenter(args);loading.update();loading.set_description('Loading Qwen');pipe=load_pipe(args);loading.update();loading.close()
  if base_path.is_file() and objects_path.is_file():
   print(f'Reusing E1 setup from {e1}');objects=json.load(open(objects_path,encoding='utf8'));current=Image.open(base_path).convert('RGB').resize(size)
  else:
   setup_dir=out/'setup';current,objects=generate_setup(pipe,args,setup_dir);current=current.resize(size)
- loading.set_description('Loading SAM2');sam=SAM(args.sam_model_id,args.sam_device);loading.update();loading.close()
  placements=json.load(open(args.placements,encoding='utf8')) if args.placement_backend=='manual' else {};current.save(out/'base.png')
  cutouts={}
- for item in tqdm(objects,desc='SAM reference cutouts',unit='object'):
+ for item in tqdm(objects,desc=f'{active_mask_backend} reference cutouts',unit='object'):
   reference=Image.open(item['image']).convert('RGB').resize(size);cut=sam.cutout(item['name'],reference,args.background_threshold);cut.rgb.save(cutout_dir/f"{item['name']}_rgb.png");cut.alpha.save(cutout_dir/f"{item['name']}_alpha.png");cutouts[item['name']]=cut
  history=[];occupied=Image.new('L',size)
  for index,item in enumerate(tqdm(objects,desc='Collage and repaint',unit='object'),1):
@@ -193,6 +211,6 @@ def main():
   raw=infer(pipe,[collage],prompt,args,args.seed+index*1000);raw.save(step_dir/f'{index:02d}_{name}_raw_qwen.png')
   current,zone,halo=protect_scene(current,raw,object_canvas,mask,args);zone.save(step_dir/f'{index:02d}_{name}_object_zone.png');halo.save(step_dir/f'{index:02d}_{name}_interaction_halo.png');current.save(step_dir/f'{index:02d}_{name}_final.png')
   occupied=ImageChops.lighter(occupied,mask)
-  history.append({'step':index,'name':name,'placement_backend':args.placement_backend,'configured_box':box,'placed_box':placed_box,'source_box':cutouts[name].source_box,'probe':probe_info})
+  history.append({'step':index,'name':name,'mask_backend':active_mask_backend,'placement_backend':args.placement_backend,'configured_box':box,'placed_box':placed_box,'source_box':cutouts[name].source_box,'probe':probe_info})
  current.save(out/'FINAL.png');save_json(history,out/'history.json');print('Done:',out/'FINAL.png')
 if __name__=='__main__':main()
