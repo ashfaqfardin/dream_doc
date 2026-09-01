@@ -9,7 +9,7 @@ pre-RoPE query/reference-key affinity, optional x/y/depth scene plots, and
 machine-readable metrics. Target: diffusers==0.40.0.
 """
 from __future__ import annotations
-import argparse,json,math,warnings
+import argparse,gc,json,math,warnings
 from pathlib import Path
 import numpy as np
 import torch
@@ -140,11 +140,13 @@ def save_identity_heatmaps(records,image,out,args):
   grid=np.full(gh*gw,np.nan,np.float32);grid[r['indices']]=r['identity_similarity'];valid=np.isfinite(grid);fill=float(np.nanmedian(grid)) if valid.any() else 0;grid=np.nan_to_num(grid,nan=fill).reshape(gh,gw);lo,hi=np.quantile(grid,[.05,.95]);norm=np.clip((grid-lo)/(hi-lo+1e-8),0,1)
   color=np.zeros((gh,gw,3),np.uint8);color[...,0]=np.uint8(norm*255);color[...,2]=np.uint8((1-norm)*255);heat=Image.fromarray(color).resize(image.size,Image.Resampling.BILINEAR);Image.blend(image,heat,.45).save(out/f'{r["trajectory"]}_L{r["layer"]:02d}_T{r["step"]:02d}.png')
 
-def depth_map(image,args):
+def depth_map(image,args,estimator=None):
  if args.skip_depth:return np.tile(np.linspace(0,1,image.height)[:,None],(1,image.width))
  try:
-  from transformers import pipeline
-  estimator=pipeline('depth-estimation',model=args.depth_model,device=0 if args.device.startswith('cuda') else -1);result=estimator(image);depth=np.asarray(result['depth'].resize(image.size),np.float32);return (depth-depth.min())/(np.ptp(depth)+1e-8)
+  if estimator is None:
+   from transformers import pipeline
+   estimator=pipeline('depth-estimation',model=args.depth_model,device=0 if args.device.startswith('cuda') else -1)
+  result=estimator(image);depth=np.asarray(result['depth'].resize(image.size),np.float32);return (depth-depth.min())/(np.ptp(depth)+1e-8)
  except Exception as exc:warnings.warn(f'Depth estimation failed ({exc}); using image-y proxy.');return np.tile(np.linspace(0,1,image.height)[:,None],(1,image.width))
 
 def write_physical_plot(image,depth,record,path,args):
@@ -153,30 +155,66 @@ def write_physical_plot(image,depth,record,path,args):
 
 def parser():
  p=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter);p.add_argument('--prompts',default=str(HERE/'e3_prompts.json'));p.add_argument('--out_dir',default='results/qwen_e4_3d_lab');p.add_argument('--case_id',type=int,default=1);p.add_argument('--object_index',type=int,default=1)
+ p.add_argument('--all_prompts',action='store_true',help='Analyze every object in every prompt-suite case')
  p.add_argument('--model_id',default='Qwen/Qwen-Image-Edit-2509');p.add_argument('--lightning_repo',default='lightx2v/Qwen-Image-Lightning');p.add_argument('--lightning_weight',default='Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors');p.add_argument('--lora_scale',type=float,default=1);p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--object_seed',type=int,default=1337);p.add_argument('--true_cfg_scale',type=float,default=1);p.add_argument('--negative_prompt',default=' ');p.add_argument('--resume',action=argparse.BooleanOptionalAction,default=True);p.add_argument('--missing_policy',choices=('skip','error'),default='error');p.add_argument('--max_objects',type=int)
  p.add_argument('--layers',type=int,nargs='+',default=[10,20,30,40,50,59]);p.add_argument('--tokens_per_snapshot',type=int,default=128);p.add_argument('--projection_dim',type=int,default=64);p.add_argument('--affinity_queries',type=int,default=128);p.add_argument('--affinity_keys',type=int,default=128);p.add_argument('--depth_model',default='depth-anything/Depth-Anything-V2-Small-hf');p.add_argument('--skip_depth',action='store_true');return p.parse_args()
+
+def safe_slug(value):
+ return ''.join(c if c.isalnum() else '_' for c in str(value).lower()).strip('_') or 'object'
+
+def analyze_object(pipe,base,depth,case,item,reference,args,out,seed):
+ """Run the four matched trajectories for one object against a fixed base."""
+ out.mkdir(parents=True,exist_ok=True)
+ generic_prompt=f'Add exactly one complete generic {item["name"]} naturally in the most plausible location. Preserve the scene.'
+ replacement_prompt=f'Image 1 contains a generic {item["name"]}. Image 2 is the exact reference. Replace only the generic object with the Image 2 identity while preserving its location and the scene.'
+ base.save(out/'base.png');reference.save(out/'reference.png')
+ recorder=ActivationRecorder(pipe,args);affinity=QKAffinityRecorder(pipe,args);recorder.install();affinity.install();matched='Preserve Image 1 exactly without changing anything.'
+ try:
+  recorder.begin('base','output');call(pipe,base,matched,args,seed+1000,'latent')
+  # Capture the generic trajectory during its actual generation. Previously E4
+  # generated it once and then spent a duplicate pass tracing a preservation edit.
+  recorder.begin('generic','output');generic=first_image(call(pipe,base,generic_prompt,args,seed+200,'pil'))
+  recorder.begin('reference','condition');call(pipe,reference,matched,args,seed+1000,'latent')
+  recorder.begin('replacement','output');affinity.begin();replacement=first_image(call(pipe,[generic,reference],replacement_prompt,args,seed+1000,'pil'));affinity.end()
+ finally:recorder.close();affinity.close()
+ generic.save(out/'generic.png');replacement.save(out/'replacement.png');pca=randomized_pca(recorder.records,args.projection_dim,seed);identity=identity_metrics(recorder.records);write_feature_plot(recorder.records,out/'feature_pca_3d.html');write_trajectory_plot(recorder.records,out/'token_trajectories_3d.html');write_affinity_surface(affinity.records,out/'reference_affinity_surface.html');save_identity_heatmaps(recorder.records,replacement,out/'identity_heatmaps',args);physical=next(r for r in recorder.records if r['trajectory']=='generic');write_physical_plot(base,depth,physical,out/'physical_scene_3d.html',args)
+ compact=[{'trajectory':r['trajectory'],'layer':r['layer'],'step':r['step'],'segment':r['segment']} for r in recorder.records];metrics={'case_id':int(case['id']),'object':item['name'],'pca':pca,'identity_similarity':identity,'qk_affinity':[{k:v for k,v in r.items() if k not in {'query_indices','max_affinity'}} for r in affinity.records],'captures':compact};save_json(metrics,out/'metrics.json')
+ archive={}
+ for r in recorder.records:
+  key=f'{r["trajectory"]}_L{r["layer"]}_T{r["step"]}';archive[key+'_features']=r['features'];archive[key+'_pca_xyz']=r['xyz'];archive[key+'_token_indices']=r['indices']
+ np.savez_compressed(out/'features_and_coordinates.npz',**archive)
+ return {'case_id':int(case['id']),'object':item['name'],'output':str(out),'status':'complete','identity_measurements':len(identity),'affinity_measurements':len(affinity.records)}
 
 def main():
  args=parser();
  if diffusers.__version__!='0.40.0':warnings.warn(f'E4 Lab targets diffusers 0.40.0; found {diffusers.__version__}')
- out=Path(args.out_dir);out.mkdir(parents=True,exist_ok=True);pf=Path(args.prompts).resolve();cases=e3.load_suite(pf);case=next((c for c in cases if int(c['id'])==args.case_id),None)
- if case is None:raise ValueError(f'Unknown case id {args.case_id}')
- if not 1<=args.object_index<=len(case['objects']):raise ValueError('object_index is one-based and outside this case')
- item=case['objects'][args.object_index-1];save_json(vars(args),out/'config.json');pipe=load_pipe(args);refs=e3.generate_references(pipe,[{'id':case['id'],'base_prompt':case['base_prompt'],'objects':[item]}],args,out,pf);record=refs[e3.reference_key(item)]
- if record.get('status')!='ready':raise FileNotFoundError(record)
- reference=fit(Image.open(record['image']),(args.width,args.height));blank=Image.new('RGB',(args.width,args.height),'white');base=infer(pipe,[blank],'Replace blank Image 1 with: '+case['base_prompt'],args,args.seed+100);generic=infer(pipe,[base],f'Add exactly one complete generic {item["name"]} naturally in the most plausible location. Preserve the scene.',args,args.seed+200);replacement_prompt=f'Image 1 contains a generic {item["name"]}. Image 2 is the exact reference. Replace only the generic object with the Image 2 identity while preserving its location and the scene.'
- base.save(out/'base.png');generic.save(out/'generic.png');reference.save(out/'reference.png')
- recorder=ActivationRecorder(pipe,args);affinity=QKAffinityRecorder(pipe,args);recorder.install();affinity.install();matched='Preserve Image 1 exactly without changing anything.'
- try:
-  recorder.begin('base','output');call(pipe,base,matched,args,args.seed+1000,'latent')
-  recorder.begin('generic','output');call(pipe,generic,matched,args,args.seed+1000,'latent')
-  recorder.begin('reference','condition');call(pipe,reference,matched,args,args.seed+1000,'latent')
-  recorder.begin('replacement','output');affinity.begin();replacement=first_image(call(pipe,[generic,reference],replacement_prompt,args,args.seed+1000,'pil'));affinity.end()
- finally:recorder.close();affinity.close()
- replacement.save(out/'replacement.png');pca=randomized_pca(recorder.records,args.projection_dim,args.seed);identity=identity_metrics(recorder.records);write_feature_plot(recorder.records,out/'feature_pca_3d.html');write_trajectory_plot(recorder.records,out/'token_trajectories_3d.html');write_affinity_surface(affinity.records,out/'reference_affinity_surface.html');save_identity_heatmaps(recorder.records,replacement,out/'identity_heatmaps',args);depth=depth_map(base,args);physical=next(r for r in recorder.records if r['trajectory']=='generic');write_physical_plot(base,depth,physical,out/'physical_scene_3d.html',args)
- compact_records=[{'trajectory':r['trajectory'],'layer':r['layer'],'step':r['step'],'segment':r['segment']} for r in recorder.records];save_json({'case_id':args.case_id,'object':item['name'],'pca':pca,'identity_similarity':identity,'qk_affinity':[{k:v for k,v in r.items() if k not in {'query_indices','max_affinity'}} for r in affinity.records],'captures':compact_records},out/'metrics.json')
- archive={}
- for r in recorder.records:
-  key=f'{r["trajectory"]}_L{r["layer"]}_T{r["step"]}';archive[key+'_features']=r['features'];archive[key+'_pca_xyz']=r['xyz'];archive[key+'_token_indices']=r['indices']
- np.savez_compressed(out/'features_and_coordinates.npz',**archive);print('Done:',out)
+ out=Path(args.out_dir);out.mkdir(parents=True,exist_ok=True);pf=Path(args.prompts).resolve();all_cases=e3.load_suite(pf)
+ if args.all_prompts:cases=all_cases
+ else:
+  case=next((c for c in all_cases if int(c['id'])==args.case_id),None)
+  if case is None:raise ValueError(f'Unknown case id {args.case_id}')
+  if not 1<=args.object_index<=len(case['objects']):raise ValueError('object_index is one-based and outside this case')
+  cases=[{'id':case['id'],'base_prompt':case['base_prompt'],'objects':[case['objects'][args.object_index-1]]}]
+ save_json(vars(args),out/'config.json');total=sum(len(c['objects']) for c in cases);print(f'E4 will analyze {len(cases)} case(s), {total} object(s), with one model load.')
+ pipe=load_pipe(args);refs=e3.generate_references(pipe,cases,args,out,pf);depth_estimator=None
+ if not args.skip_depth:
+  from transformers import pipeline
+  depth_estimator=pipeline('depth-estimation',model=args.depth_model,device=0 if args.device.startswith('cuda') else -1)
+ summary=[];progress=tqdm(total=total,desc='E4 object analyses',unit='object')
+ for case in cases:
+  case_out=out/f'case_{int(case["id"]):03d}';case_out.mkdir(parents=True,exist_ok=True);base_path=case_out/'base.png';case_seed=args.seed+int(case['id'])*10000
+  if args.resume and base_path.is_file():base=fit(Image.open(base_path),(args.width,args.height))
+  else:
+   blank=Image.new('RGB',(args.width,args.height),'white');base=infer(pipe,[blank],'Replace blank Image 1 with: '+case['base_prompt'],args,case_seed+100);base.save(base_path)
+  depth=depth_map(base,args,depth_estimator)
+  for object_index,item in enumerate(case['objects'],1):
+   object_out=case_out/f'object_{object_index:02d}_{safe_slug(item["name"])}';metrics_path=object_out/'metrics.json'
+   if args.resume and metrics_path.is_file() and (object_out/'replacement.png').is_file():
+    summary.append({'case_id':int(case['id']),'object':item['name'],'output':str(object_out),'status':'resumed'});progress.update();continue
+   record=refs[e3.reference_key(item)]
+   if record.get('status')!='ready':
+    if args.missing_policy=='skip':summary.append({'case_id':int(case['id']),'object':item['name'],'status':'missing_reference'});progress.update();continue
+    raise FileNotFoundError(record)
+   reference=fit(Image.open(record['image']),(args.width,args.height));summary.append(analyze_object(pipe,base,depth,case,item,reference,args,object_out,case_seed+object_index*100));save_json({'requested':total,'results':summary},out/'summary.json');gc.collect();torch.cuda.empty_cache() if torch.cuda.is_available() else None;progress.update()
+ progress.close();save_json({'requested':total,'completed':sum(x['status'] in {'complete','resumed'} for x in summary),'results':summary},out/'summary.json');print('Done:',out)
 if __name__=='__main__':main()

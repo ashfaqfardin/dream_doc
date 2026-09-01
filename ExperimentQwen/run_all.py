@@ -71,6 +71,11 @@ def parse_args():
     parser.add_argument("--device", default="cuda", help="Device forwarded to each experiment")
     parser.add_argument("--true_cfg_scale", type=float, help="Optional traditional CFG scale forwarded to experiments")
     parser.add_argument("--negative_prompt", help="Negative prompt; effective only when --true_cfg_scale is greater than 1")
+    parser.add_argument("--e4_case_id", type=int, default=1, help="E3 prompt-suite case analyzed by E4")
+    parser.add_argument("--e4_object_index", type=int, default=1, help="One-based object index within the selected E4 case")
+    parser.add_argument("--e4_all_prompts", action="store_true", help="Run E4 for every object in every e3_prompts.json case")
+    parser.add_argument("--e4_tokens_per_snapshot", type=int, default=128, help="Spatial tokens retained per E4 layer/step snapshot")
+    parser.add_argument("--e4_skip_depth", action="store_true", help="Use image-y as E4's depth proxy instead of loading Depth Anything")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -178,6 +183,14 @@ def main():
             command.extend(["--true_cfg_scale", str(args.true_cfg_scale)])
         if args.negative_prompt is not None:
             command.extend(["--negative_prompt", args.negative_prompt])
+        if experiment["id"] == "e4":
+            command.extend(["--tokens_per_snapshot", str(args.e4_tokens_per_snapshot)])
+            if args.e4_all_prompts:
+                command.append("--all_prompts")
+            else:
+                command.extend(["--case_id", str(args.e4_case_id), "--object_index", str(args.e4_object_index)])
+            if args.e4_skip_depth:
+                command.append("--skip_depth")
         started = time.perf_counter()
         result = subprocess.run(command, cwd=str(ROOT), env=os.environ.copy())
         elapsed = format_duration(time.perf_counter() - started)
