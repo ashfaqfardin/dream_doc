@@ -79,9 +79,13 @@ def load_pipe(args):
  return pipe
 
 def infer(pipe,images,prompt,args,seed):
- return pipe(image=images,prompt=prompt,negative_prompt=args.negative_prompt,
-  true_cfg_scale=args.true_cfg_scale,guidance_scale=1.0,num_inference_steps=args.steps,
-  width=args.width,height=args.height,generator=make_generator(args.device,seed)).images[0].convert('RGB')
+ # Qwen-Image-Edit is not guidance-distilled, so `guidance_scale` must not be
+ # passed. Traditional CFG (and therefore the negative prompt) is active only
+ # when true_cfg_scale > 1. Avoid passing an ignored negative prompt otherwise.
+ cfg_enabled=args.true_cfg_scale>1.0
+ return pipe(image=images,prompt=prompt,negative_prompt=args.negative_prompt if cfg_enabled else None,
+  true_cfg_scale=args.true_cfg_scale,num_inference_steps=args.steps,width=args.width,
+  height=args.height,generator=make_generator(args.device,seed)).images[0].convert('RGB')
 
 def discover_sketches(directory):
  root=Path(directory);found={p.stem.removeprefix('sketch_'):p for p in root.glob('*') if p.suffix.lower() in {'.png','.jpg','.jpeg','.webp'}}

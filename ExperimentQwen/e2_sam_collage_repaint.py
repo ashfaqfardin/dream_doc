@@ -149,8 +149,8 @@ def save_heatmap(scene,heat,box,path):
 
 def probe_placement(pipe,scene,name,cutout,occupied,args,seed,path):
  """Counterfactual denoising: localize where the insertion instruction acts."""
- common=dict(image=[scene],negative_prompt=args.negative_prompt,true_cfg_scale=args.true_cfg_scale,
-  guidance_scale=1.0,num_inference_steps=args.probe_steps,width=args.width,height=args.height,output_type='latent')
+ common=dict(image=[scene],negative_prompt=args.negative_prompt if args.true_cfg_scale>1 else None,
+  true_cfg_scale=args.true_cfg_scale,num_inference_steps=args.probe_steps,width=args.width,height=args.height,output_type='latent')
  add=(f'Add exactly one complete {name} at the most physically plausible unoccupied location in this scene. '
       'Respect support surfaces, perspective, scale and existing objects. Preserve the rest of the scene.')
  keep='Preserve this scene exactly. Do not add, remove, move or alter any object.'

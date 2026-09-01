@@ -58,8 +58,7 @@ EXPERIMENTS = [
         ],
         "requires": [HERE / "e3_prompts.json", HERE / "object_canny"],
     },
-    {"id":"e4","name":"Feature/Frequency-Locked Verified Insertion","script":HERE/"e4_feature_frequency_locked_insertion.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_feature_frequency")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
-    {"id":"e5","name":"Qwen Object Feature/KV Transplant","script":HERE/"e5_object_feature_transplant.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_object_feature_transplant")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
+    {"id":"e4","name":"Query-Routed External-Memory Reference Replacement","script":HERE/"e4_query_routed_reference_replacement.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_query_routed")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -70,6 +69,8 @@ def parse_args():
     parser.add_argument("--only", nargs="+", metavar="ID", help="Run only these IDs, e.g. --only e1 e2")
     parser.add_argument("--skip", nargs="+", metavar="ID", default=[], help="Skip these experiment IDs")
     parser.add_argument("--device", default="cuda", help="Device forwarded to each experiment")
+    parser.add_argument("--true_cfg_scale", type=float, help="Optional traditional CFG scale forwarded to experiments")
+    parser.add_argument("--negative_prompt", help="Negative prompt; effective only when --true_cfg_scale is greater than 1")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -173,6 +174,10 @@ def main():
             *map(str, experiment.get("args", [])),
             "--device", args.device,
         ]
+        if args.true_cfg_scale is not None:
+            command.extend(["--true_cfg_scale", str(args.true_cfg_scale)])
+        if args.negative_prompt is not None:
+            command.extend(["--negative_prompt", args.negative_prompt])
         started = time.perf_counter()
         result = subprocess.run(command, cwd=str(ROOT), env=os.environ.copy())
         elapsed = format_duration(time.perf_counter() - started)
