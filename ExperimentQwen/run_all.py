@@ -58,7 +58,7 @@ EXPERIMENTS = [
         ],
         "requires": [HERE / "e3_prompts.json", HERE / "object_canny"],
     },
-    {"id":"e4","name":"Query-Routed External-Memory Reference Replacement","script":HERE/"e4_query_routed_reference_replacement.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_query_routed")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
+    {"id":"e4","name":"3D Feature Trajectory and Reference-Attention Lab","script":HERE/"e4_3d_feature_trajectory_lab.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_3d_lab")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
 ]
 
 
