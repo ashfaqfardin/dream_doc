@@ -48,6 +48,16 @@ EXPERIMENTS = [
             DEFAULT_SKETCH_DIR,
         ],
     },
+    {
+        "id": "e3",
+        "name": "JSON Prompt Suite: 20 Scenes with Incremental Reference Insertions",
+        "script": HERE / "e3_prompt_suite_baseline.py",
+        "args": [
+            "--prompts", str(HERE / "e3_prompts.json"),
+            "--out_dir", str(ROOT / "results" / "qwen_e3_prompt_suite"),
+        ],
+        "requires": [HERE / "e3_prompts.json", HERE / "object_canny"],
+    },
 ]
 
 

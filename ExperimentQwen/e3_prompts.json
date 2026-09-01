@@ -1,0 +1,264 @@
+{
+  "prompts": [
+    {
+      "id": 1,
+      "base_prompt": "Create a photorealistic empty modern living room with warm neutral walls, wooden floor, natural daylight, realistic perspective, and several physically plausible open areas for furniture and objects. Keep the room uncluttered and completely empty.",
+      "objects": [
+        {"name": "couch",       "obj_prompt": "Convert this sketch into a photorealistic couch.",        "canny_file": "ExperimentQwen/object_canny/couch.png"},
+        {"name": "floor lamp",  "obj_prompt": "Convert this sketch into a photorealistic floor lamp.",   "canny_file": "ExperimentQwen/object_canny/floor_lamp.png"},
+        {"name": "house plant", "obj_prompt": "Convert this sketch into a photorealistic house plant.",  "canny_file": "ExperimentQwen/object_canny/potted_plant.png"},
+        {"name": "chair",       "obj_prompt": "Convert this sketch into a photorealistic chair.",        "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "television",  "obj_prompt": "Convert this sketch into a photorealistic television.",   "canny_file": "ExperimentQwen/object_canny/television.png"},
+        {"name": "table",       "obj_prompt": "Convert this sketch into a photorealistic table.",        "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "pillow",      "obj_prompt": "Convert this sketch into a photorealistic pillow.",       "canny_file": "ExperimentQwen/object_canny/pillow.png"}
+      ]
+    },
+    {
+      "id": 2,
+      "base_prompt": "Create a photorealistic empty modern kitchen with plain cabinets, clean countertops, tiled backsplash, soft daylight from a window, realistic perspective, and clear uncluttered surfaces. Keep the kitchen completely empty.",
+      "objects": [
+        {"name": "toaster",    "obj_prompt": "Convert this sketch into a photorealistic toaster.",    "canny_file": "ExperimentQwen/object_canny/toaster.png"},
+        {"name": "microwave",  "obj_prompt": "Convert this sketch into a photorealistic microwave.",  "canny_file": "ExperimentQwen/object_canny/microwave.png"},
+        {"name": "oven",       "obj_prompt": "Convert this sketch into a photorealistic oven.",       "canny_file": "ExperimentQwen/object_canny/oven.png"},
+        {"name": "frying pan", "obj_prompt": "Convert this sketch into a photorealistic frying pan.", "canny_file": "ExperimentQwen/object_canny/frying_pan.png"},
+        {"name": "coffee cup", "obj_prompt": "Convert this sketch into a photorealistic coffee cup.", "canny_file": "ExperimentQwen/object_canny/cup.png"},
+        {"name": "teapot",     "obj_prompt": "Convert this sketch into a photorealistic teapot.",     "canny_file": "ExperimentQwen/object_canny/teapot.png"},
+        {"name": "knife",      "obj_prompt": "Convert this sketch into a photorealistic knife.",      "canny_file": "ExperimentQwen/object_canny/knife.png"}
+      ]
+    },
+    {
+      "id": 3,
+      "base_prompt": "Create a photorealistic empty home office with a plain desk surface, neutral walls, wooden floor, soft window light, realistic perspective, and clear open areas. Keep the room completely empty of accessories.",
+      "objects": [
+        {"name": "laptop",    "obj_prompt": "Convert this sketch into a photorealistic laptop.",    "canny_file": "ExperimentQwen/object_canny/laptop.png"},
+        {"name": "clock",     "obj_prompt": "Convert this sketch into a photorealistic clock.",     "canny_file": "ExperimentQwen/object_canny/clock.png"},
+        {"name": "chair",     "obj_prompt": "Convert this sketch into a photorealistic chair.",     "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "computer",  "obj_prompt": "Convert this sketch into a photorealistic computer.",  "canny_file": "ExperimentQwen/object_canny/computer.png"},
+        {"name": "book",      "obj_prompt": "Convert this sketch into a photorealistic book.",      "canny_file": "ExperimentQwen/object_canny/book.png"},
+        {"name": "telephone", "obj_prompt": "Convert this sketch into a photorealistic telephone.", "canny_file": "ExperimentQwen/object_canny/telephone.png"},
+        {"name": "keyboard",  "obj_prompt": "Convert this sketch into a photorealistic keyboard.",  "canny_file": "ExperimentQwen/object_canny/keyboard.png"}
+      ]
+    },
+    {
+      "id": 4,
+      "base_prompt": "Create a photorealistic empty bedroom with soft neutral walls, carpeted floor, gentle morning light through a window, realistic perspective, and plausible open floor space. Keep the room completely empty.",
+      "objects": [
+        {"name": "bed",     "obj_prompt": "Convert this sketch into a photorealistic bed.",     "canny_file": "ExperimentQwen/object_canny/bed.png"},
+        {"name": "dresser", "obj_prompt": "Convert this sketch into a photorealistic dresser.", "canny_file": "ExperimentQwen/object_canny/dresser.png"},
+        {"name": "pillow",  "obj_prompt": "Convert this sketch into a photorealistic pillow.",  "canny_file": "ExperimentQwen/object_canny/pillow.png"},
+        {"name": "bench",   "obj_prompt": "Convert this sketch into a photorealistic bench.",   "canny_file": "ExperimentQwen/object_canny/bench.png"},
+        {"name": "table",   "obj_prompt": "Convert this sketch into a photorealistic table.",   "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "candle",  "obj_prompt": "Convert this sketch into a photorealistic candle.",  "canny_file": "ExperimentQwen/object_canny/candle.png"},
+        {"name": "clock",   "obj_prompt": "Convert this sketch into a photorealistic clock.",   "canny_file": "ExperimentQwen/object_canny/clock.png"}
+      ]
+    },
+    {
+      "id": 5,
+      "base_prompt": "Create a photorealistic empty wooden dining table in a bright room, top-down and slightly angled view, natural daylight, realistic textures and shadows. Keep the tabletop completely bare.",
+      "objects": [
+        {"name": "teapot", "obj_prompt": "Convert this sketch into a photorealistic teapot.", "canny_file": "ExperimentQwen/object_canny/teapot.png"},
+        {"name": "vase",   "obj_prompt": "Convert this sketch into a photorealistic vase.",   "canny_file": "ExperimentQwen/object_canny/vase.png"},
+        {"name": "fork",   "obj_prompt": "Convert this sketch into a photorealistic fork.",   "canny_file": "ExperimentQwen/object_canny/fork.png"},
+        {"name": "knife",  "obj_prompt": "Convert this sketch into a photorealistic knife.",  "canny_file": "ExperimentQwen/object_canny/knife.png"},
+        {"name": "spoon",  "obj_prompt": "Convert this sketch into a photorealistic spoon.",  "canny_file": "ExperimentQwen/object_canny/spoon.png"},
+        {"name": "cup",    "obj_prompt": "Convert this sketch into a photorealistic cup.",    "canny_file": "ExperimentQwen/object_canny/cup.png"},
+        {"name": "basket", "obj_prompt": "Convert this sketch into a photorealistic basket.", "canny_file": "ExperimentQwen/object_canny/basket.png"}
+      ]
+    },
+    {
+      "id": 6,
+      "base_prompt": "Create a photorealistic empty bathroom with light tiled walls, a clean vanity counter, a mirror, soft diffused lighting, realistic perspective, and no items on any surface.",
+      "objects": [
+        {"name": "toothbrush",  "obj_prompt": "Convert this sketch into a photorealistic toothbrush.",  "canny_file": "ExperimentQwen/object_canny/toothbrush.png"},
+        {"name": "bucket",      "obj_prompt": "Convert this sketch into a photorealistic bucket.",      "canny_file": "ExperimentQwen/object_canny/bucket.png"},
+        {"name": "house plant", "obj_prompt": "Convert this sketch into a photorealistic house plant.", "canny_file": "ExperimentQwen/object_canny/potted_plant.png"},
+        {"name": "candle",      "obj_prompt": "Convert this sketch into a photorealistic candle.",      "canny_file": "ExperimentQwen/object_canny/candle.png"},
+        {"name": "cup",         "obj_prompt": "Convert this sketch into a photorealistic cup.",         "canny_file": "ExperimentQwen/object_canny/cup.png"},
+        {"name": "scissors",    "obj_prompt": "Convert this sketch into a photorealistic scissors.",    "canny_file": "ExperimentQwen/object_canny/scissors.png"},
+        {"name": "broom",       "obj_prompt": "Convert this sketch into a photorealistic broom.",       "canny_file": "ExperimentQwen/object_canny/broom.png"}
+      ]
+    },
+    {
+      "id": 7,
+      "base_prompt": "Create a photorealistic empty garage interior with concrete floor, plain walls, overhead lighting, realistic perspective, and large clear open areas. Keep the space completely empty.",
+      "objects": [
+        {"name": "bicycle",     "obj_prompt": "Convert this sketch into a photorealistic bicycle.",     "canny_file": "ExperimentQwen/object_canny/bicycle.png"},
+        {"name": "ladder",      "obj_prompt": "Convert this sketch into a photorealistic ladder.",      "canny_file": "ExperimentQwen/object_canny/ladder.png"},
+        {"name": "hammer",      "obj_prompt": "Convert this sketch into a photorealistic hammer.",      "canny_file": "ExperimentQwen/object_canny/hammer.png"},
+        {"name": "screwdriver", "obj_prompt": "Convert this sketch into a photorealistic screwdriver.", "canny_file": "ExperimentQwen/object_canny/screwdriver.png"},
+        {"name": "saw",         "obj_prompt": "Convert this sketch into a photorealistic saw.",         "canny_file": "ExperimentQwen/object_canny/saw.png"},
+        {"name": "drill",       "obj_prompt": "Convert this sketch into a photorealistic drill.",       "canny_file": "ExperimentQwen/object_canny/drill.png"},
+        {"name": "paint can",   "obj_prompt": "Convert this sketch into a photorealistic paint can.",   "canny_file": "ExperimentQwen/object_canny/paint_can.png"}
+      ]
+    },
+    {
+      "id": 8,
+      "base_prompt": "Create a photorealistic empty backyard garden with mown grass, a paved patio area, a fence in the background, bright afternoon sunlight, and realistic perspective. Keep the yard completely empty.",
+      "objects": [
+        {"name": "chair",       "obj_prompt": "Convert this sketch into a photorealistic chair.",       "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "table",       "obj_prompt": "Convert this sketch into a photorealistic table.",       "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "umbrella",    "obj_prompt": "Convert this sketch into a photorealistic umbrella.",    "canny_file": "ExperimentQwen/object_canny/umbrella.png"},
+        {"name": "soccer ball", "obj_prompt": "Convert this sketch into a photorealistic soccer ball.", "canny_file": "ExperimentQwen/object_canny/soccer_ball.png"},
+        {"name": "shovel",      "obj_prompt": "Convert this sketch into a photorealistic shovel.",      "canny_file": "ExperimentQwen/object_canny/shovel.png"},
+        {"name": "rake",        "obj_prompt": "Convert this sketch into a photorealistic rake.",        "canny_file": "ExperimentQwen/object_canny/rake.png"},
+        {"name": "broom",       "obj_prompt": "Convert this sketch into a photorealistic broom.",       "canny_file": "ExperimentQwen/object_canny/broom.png"}
+      ]
+    },
+    {
+      "id": 9,
+      "base_prompt": "Create a photorealistic empty retail storefront interior with white walls, polished floor, recessed ceiling lights, realistic perspective, and clear open floor space. Keep the store completely empty.",
+      "objects": [
+        {"name": "basket",   "obj_prompt": "Convert this sketch into a photorealistic basket.",   "canny_file": "ExperimentQwen/object_canny/basket.png"},
+        {"name": "table",    "obj_prompt": "Convert this sketch into a photorealistic table.",    "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "chair",    "obj_prompt": "Convert this sketch into a photorealistic chair.",    "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "backpack", "obj_prompt": "Convert this sketch into a photorealistic backpack.", "canny_file": "ExperimentQwen/object_canny/backpack.png"},
+        {"name": "jacket",   "obj_prompt": "Convert this sketch into a photorealistic jacket.",   "canny_file": "ExperimentQwen/object_canny/jacket.png"},
+        {"name": "shoe",     "obj_prompt": "Convert this sketch into a photorealistic shoe.",     "canny_file": "ExperimentQwen/object_canny/shoe.png"},
+        {"name": "book",     "obj_prompt": "Convert this sketch into a photorealistic book.",     "canny_file": "ExperimentQwen/object_canny/book.png"}
+      ]
+    },
+    {
+      "id": 10,
+      "base_prompt": "Create a photorealistic empty classroom with plain walls, tiled floor, large windows with daylight, a blank whiteboard, and realistic perspective. Keep the room completely empty.",
+      "objects": [
+        {"name": "book",     "obj_prompt": "Convert this sketch into a photorealistic book.",     "canny_file": "ExperimentQwen/object_canny/book.png"},
+        {"name": "chair",    "obj_prompt": "Convert this sketch into a photorealistic chair.",    "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "table",    "obj_prompt": "Convert this sketch into a photorealistic table.",    "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "backpack", "obj_prompt": "Convert this sketch into a photorealistic backpack.", "canny_file": "ExperimentQwen/object_canny/backpack.png"},
+        {"name": "clock",    "obj_prompt": "Convert this sketch into a photorealistic clock.",    "canny_file": "ExperimentQwen/object_canny/clock.png"},
+        {"name": "map",      "obj_prompt": "Convert this sketch into a photorealistic map.",      "canny_file": "ExperimentQwen/object_canny/map.png"},
+        {"name": "pencil",   "obj_prompt": "Convert this sketch into a photorealistic pencil.",   "canny_file": "ExperimentQwen/object_canny/pencil.png"}
+      ]
+    },
+    {
+      "id": 11,
+      "base_prompt": "Create a photorealistic empty coffee shop interior with brick walls, wooden floor, warm pendant lighting, large window, realistic perspective, and clear open areas. Keep the space completely empty.",
+      "objects": [
+        {"name": "table",      "obj_prompt": "Convert this sketch into a photorealistic table.",      "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "chair",      "obj_prompt": "Convert this sketch into a photorealistic chair.",      "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "coffee cup", "obj_prompt": "Convert this sketch into a photorealistic coffee cup.", "canny_file": "ExperimentQwen/object_canny/cup.png"},
+        {"name": "vase",       "obj_prompt": "Convert this sketch into a photorealistic vase.",       "canny_file": "ExperimentQwen/object_canny/vase.png"},
+        {"name": "house plant","obj_prompt": "Convert this sketch into a photorealistic house plant.","canny_file": "ExperimentQwen/object_canny/potted_plant.png"},
+        {"name": "teapot",     "obj_prompt": "Convert this sketch into a photorealistic teapot.",     "canny_file": "ExperimentQwen/object_canny/teapot.png"},
+        {"name": "candle",     "obj_prompt": "Convert this sketch into a photorealistic candle.",     "canny_file": "ExperimentQwen/object_canny/candle.png"}
+      ]
+    },
+    {
+      "id": 12,
+      "base_prompt": "Create a photorealistic empty balcony with a tiled floor, metal railing, city view in the background, soft evening light, and realistic perspective. Keep the balcony completely empty.",
+      "objects": [
+        {"name": "chair",   "obj_prompt": "Convert this sketch into a photorealistic chair.",   "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "table",   "obj_prompt": "Convert this sketch into a photorealistic table.",   "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "flower",  "obj_prompt": "Convert this sketch into a photorealistic flower.",  "canny_file": "ExperimentQwen/object_canny/flower.png"},
+        {"name": "candle",  "obj_prompt": "Convert this sketch into a photorealistic candle.",  "canny_file": "ExperimentQwen/object_canny/candle.png"},
+        {"name": "lantern", "obj_prompt": "Convert this sketch into a photorealistic lantern.", "canny_file": "ExperimentQwen/object_canny/latern.png"},
+        {"name": "broom",   "obj_prompt": "Convert this sketch into a photorealistic broom.",   "canny_file": "ExperimentQwen/object_canny/broom.png"},
+        {"name": "cup",     "obj_prompt": "Convert this sketch into a photorealistic cup.",     "canny_file": "ExperimentQwen/object_canny/cup.png"}
+      ]
+    },
+    {
+      "id": 13,
+      "base_prompt": "Create a photorealistic empty beach scene with clean pale sand in the foreground, calm sea, clear sky, bright midday sun, and realistic perspective. Keep the sand completely empty.",
+      "objects": [
+        {"name": "umbrella",    "obj_prompt": "Convert this sketch into a photorealistic umbrella.",    "canny_file": "ExperimentQwen/object_canny/umbrella.png"},
+        {"name": "basket",      "obj_prompt": "Convert this sketch into a photorealistic basket.",      "canny_file": "ExperimentQwen/object_canny/basket.png"},
+        {"name": "bucket",      "obj_prompt": "Convert this sketch into a photorealistic bucket.",      "canny_file": "ExperimentQwen/object_canny/bucket.png"},
+        {"name": "shovel",      "obj_prompt": "Convert this sketch into a photorealistic shovel.",      "canny_file": "ExperimentQwen/object_canny/shovel.png"},
+        {"name": "soccer ball", "obj_prompt": "Convert this sketch into a photorealistic soccer ball.", "canny_file": "ExperimentQwen/object_canny/soccer_ball.png"},
+        {"name": "book",        "obj_prompt": "Convert this sketch into a photorealistic book.",        "canny_file": "ExperimentQwen/object_canny/book.png"},
+        {"name": "camera",      "obj_prompt": "Convert this sketch into a photorealistic camera.",      "canny_file": "ExperimentQwen/object_canny/camera.png"}
+      ]
+    },
+    {
+      "id": 14,
+      "base_prompt": "Create a photorealistic empty gym interior with rubber flooring, mirrored wall, plain painted walls, bright overhead lighting, realistic perspective, and wide open floor space. Keep the gym completely empty.",
+      "objects": [
+        {"name": "dumbbell",      "obj_prompt": "Convert this sketch into a photorealistic dumbbell.",      "canny_file": "ExperimentQwen/object_canny/dumbbell.png"},
+        {"name": "bicycle",       "obj_prompt": "Convert this sketch into a photorealistic bicycle.",       "canny_file": "ExperimentQwen/object_canny/bicycle.png"},
+        {"name": "bench",         "obj_prompt": "Convert this sketch into a photorealistic bench.",         "canny_file": "ExperimentQwen/object_canny/bench.png"},
+        {"name": "basketball",    "obj_prompt": "Convert this sketch into a photorealistic basketball.",    "canny_file": "ExperimentQwen/object_canny/basketball.png"},
+        {"name": "soccer ball",   "obj_prompt": "Convert this sketch into a photorealistic soccer ball.",   "canny_file": "ExperimentQwen/object_canny/soccer_ball.png"},
+        {"name": "tennis racket", "obj_prompt": "Convert this sketch into a photorealistic tennis racket.", "canny_file": null},
+        {"name": "bucket",        "obj_prompt": "Convert this sketch into a photorealistic bucket.",        "canny_file": "ExperimentQwen/object_canny/bucket.png"}
+      ]
+    },
+    {
+      "id": 15,
+      "base_prompt": "Create a photorealistic empty wooden desk surface in soft studio lighting, shot from directly above, with visible grain texture and realistic soft shadows. Keep the surface completely bare.",
+      "objects": [
+        {"name": "laptop",     "obj_prompt": "Convert this sketch into a photorealistic laptop.",     "canny_file": "ExperimentQwen/object_canny/laptop.png"},
+        {"name": "mug",        "obj_prompt": "Convert this sketch into a photorealistic mug.",        "canny_file": "ExperimentQwen/object_canny/mug.png"},
+        {"name": "book",       "obj_prompt": "Convert this sketch into a photorealistic book.",       "canny_file": "ExperimentQwen/object_canny/book.png"},
+        {"name": "pencil",     "obj_prompt": "Convert this sketch into a photorealistic pencil.",     "canny_file": "ExperimentQwen/object_canny/pencil.png"},
+        {"name": "wristwatch", "obj_prompt": "Convert this sketch into a photorealistic wristwatch.", "canny_file": "ExperimentQwen/object_canny/wristwatch.png"},
+        {"name": "headphones", "obj_prompt": "Convert this sketch into a photorealistic headphones.", "canny_file": "ExperimentQwen/object_canny/headphones.png"},
+        {"name": "keyboard",   "obj_prompt": "Convert this sketch into a photorealistic keyboard.",   "canny_file": "ExperimentQwen/object_canny/keyboard.png"}
+      ]
+    },
+    {
+      "id": 16,
+      "base_prompt": "Create a photorealistic empty hotel room with neutral walls, carpeted floor, curtained window with daylight, realistic perspective, and plausible open areas. Keep the room completely empty.",
+      "objects": [
+        {"name": "suitcase",  "obj_prompt": "Convert this sketch into a photorealistic suitcase.",  "canny_file": null},
+        {"name": "bed",       "obj_prompt": "Convert this sketch into a photorealistic bed.",       "canny_file": "ExperimentQwen/object_canny/bed.png"},
+        {"name": "chair",     "obj_prompt": "Convert this sketch into a photorealistic chair.",     "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "table",     "obj_prompt": "Convert this sketch into a photorealistic table.",     "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "telephone", "obj_prompt": "Convert this sketch into a photorealistic telephone.", "canny_file": "ExperimentQwen/object_canny/telephone.png"},
+        {"name": "clock",     "obj_prompt": "Convert this sketch into a photorealistic clock.",     "canny_file": "ExperimentQwen/object_canny/clock.png"},
+        {"name": "book",      "obj_prompt": "Convert this sketch into a photorealistic book.",      "canny_file": "ExperimentQwen/object_canny/book.png"}
+      ]
+    },
+    {
+      "id": 17,
+      "base_prompt": "Create a photorealistic empty warehouse interior with concrete floor, high ceiling, metal beams, industrial lighting, realistic perspective, and vast open floor space. Keep the warehouse completely empty.",
+      "objects": [
+        {"name": "bucket", "obj_prompt": "Convert this sketch into a photorealistic bucket.", "canny_file": "ExperimentQwen/object_canny/bucket.png"},
+        {"name": "ladder", "obj_prompt": "Convert this sketch into a photorealistic ladder.", "canny_file": "ExperimentQwen/object_canny/ladder.png"},
+        {"name": "hammer", "obj_prompt": "Convert this sketch into a photorealistic hammer.", "canny_file": "ExperimentQwen/object_canny/hammer.png"},
+        {"name": "broom",  "obj_prompt": "Convert this sketch into a photorealistic broom.",  "canny_file": "ExperimentQwen/object_canny/broom.png"},
+        {"name": "shovel", "obj_prompt": "Convert this sketch into a photorealistic shovel.", "canny_file": "ExperimentQwen/object_canny/shovel.png"},
+        {"name": "basket", "obj_prompt": "Convert this sketch into a photorealistic basket.", "canny_file": "ExperimentQwen/object_canny/basket.png"},
+        {"name": "saw",    "obj_prompt": "Convert this sketch into a photorealistic saw.",    "canny_file": "ExperimentQwen/object_canny/saw.png"}
+      ]
+    },
+    {
+      "id": 18,
+      "base_prompt": "Create a photorealistic empty children's playroom with soft pastel walls, foam-tiled floor, bright daylight from a window, realistic perspective, and clear open floor. Keep the room completely empty.",
+      "objects": [
+        {"name": "teddy-bear",  "obj_prompt": "Convert this sketch into a photorealistic teddy bear.",  "canny_file": "ExperimentQwen/object_canny/teddy_bear.png"},
+        {"name": "basketball",  "obj_prompt": "Convert this sketch into a photorealistic basketball.",  "canny_file": "ExperimentQwen/object_canny/basketball.png"},
+        {"name": "soccer ball", "obj_prompt": "Convert this sketch into a photorealistic soccer ball.", "canny_file": "ExperimentQwen/object_canny/soccer_ball.png"},
+        {"name": "book",        "obj_prompt": "Convert this sketch into a photorealistic book.",        "canny_file": "ExperimentQwen/object_canny/book.png"},
+        {"name": "pencil",      "obj_prompt": "Convert this sketch into a photorealistic pencil.",      "canny_file": "ExperimentQwen/object_canny/pencil.png"},
+        {"name": "chair",       "obj_prompt": "Convert this sketch into a photorealistic chair.",       "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "bicycle",     "obj_prompt": "Convert this sketch into a photorealistic bicycle.",     "canny_file": "ExperimentQwen/object_canny/bicycle.png"}
+      ]
+    },
+    {
+      "id": 19,
+      "base_prompt": "Create a photorealistic empty rooftop terrace with wooden decking, low parapet wall, skyline in the background, golden hour light, and realistic perspective. Keep the terrace completely empty.",
+      "objects": [
+        {"name": "chair",   "obj_prompt": "Convert this sketch into a photorealistic chair.",   "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "table",   "obj_prompt": "Convert this sketch into a photorealistic table.",   "canny_file": "ExperimentQwen/object_canny/table.png"},
+        {"name": "umbrella","obj_prompt": "Convert this sketch into a photorealistic umbrella.","canny_file": "ExperimentQwen/object_canny/umbrella.png"},
+        {"name": "candle",  "obj_prompt": "Convert this sketch into a photorealistic candle.",  "canny_file": "ExperimentQwen/object_canny/candle.png"},
+        {"name": "lantern", "obj_prompt": "Convert this sketch into a photorealistic lantern.", "canny_file": "ExperimentQwen/object_canny/latern.png"},
+        {"name": "flower",  "obj_prompt": "Convert this sketch into a photorealistic flower.",  "canny_file": "ExperimentQwen/object_canny/flower.png"},
+        {"name": "cup",     "obj_prompt": "Convert this sketch into a photorealistic cup.",     "canny_file": "ExperimentQwen/object_canny/cup.png"}
+      ]
+    },
+    {
+      "id": 20,
+      "base_prompt": "Create a photorealistic empty art studio with white walls, paint-flecked wooden floor, large north-facing window, soft natural light, realistic perspective, and clear open space. Keep the studio completely empty.",
+      "objects": [
+        {"name": "book",       "obj_prompt": "Convert this sketch into a photorealistic book.",       "canny_file": "ExperimentQwen/object_canny/book.png"},
+        {"name": "chair",      "obj_prompt": "Convert this sketch into a photorealistic chair.",      "canny_file": "ExperimentQwen/object_canny/chair.png"},
+        {"name": "candle",     "obj_prompt": "Convert this sketch into a photorealistic candle.",     "canny_file": "ExperimentQwen/object_canny/candle.png"},
+        {"name": "vase",       "obj_prompt": "Convert this sketch into a photorealistic vase.",       "canny_file": "ExperimentQwen/object_canny/vase.png"},
+        {"name": "paintbrush", "obj_prompt": "Convert this sketch into a photorealistic paintbrush.", "canny_file": "ExperimentQwen/object_canny/paint_brush.png"},
+        {"name": "scissors",   "obj_prompt": "Convert this sketch into a photorealistic scissors.",   "canny_file": "ExperimentQwen/object_canny/scissors.png"},
+        {"name": "pencil",     "obj_prompt": "Convert this sketch into a photorealistic pencil.",     "canny_file": "ExperimentQwen/object_canny/pencil.png"}
+      ]
+    }
+  ]
+}
