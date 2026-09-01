@@ -23,25 +23,33 @@ HERE=Path(__file__).resolve().parent
 
 def soft_gate(mask,n,device,dtype):
  a=np.asarray(mask.resize((64,64),Image.Resampling.BILINEAR),np.float32)/255;g=torch.from_numpy(a).to(device,dtype).flatten()
- if n!=g.numel():g=F.interpolate(g[None,None],size=n,mode='linear',align_corners=False).flatten()
+ # Qwen concatenates generated-image tokens before conditioning-image tokens.
+ # Never inject into the latter. Interpolating over the entire concatenated
+ # sequence was the main cause of activation collapse / black decodes.
+ if n>g.numel() and n%g.numel()==0:g=torch.cat([g,torch.zeros(n-g.numel(),device=device,dtype=dtype)])
+ elif n!=g.numel():g=F.interpolate(g[None,None],size=n,mode='linear',align_corners=False).flatten()
  return g.reshape(1,n,1)
 
 class ObjectTransplant:
  """Capture/inject object hidden states and image-stream K/V projections."""
  def __init__(self,pipe,args,gate_mask):
   blocks=list(pipe.transformer.transformer_blocks);self.blocks=blocks[max(0,len(blocks)-args.transplant_layers):];self.args=args;self.mask=gate_mask
-  self.mode='off';self.kind='';self.bank={'hidden':[],'k':[],'v':[]};self.cursor={'hidden':0,'k':0,'v':0};self.handles=[];self.used={'hidden':0,'k':0,'v':0}
+  self.mode='off';self.capture_name='';self.bank={n:{'hidden':[],'k':[],'v':[]} for n in ('neutral','object')};self.cursor={'hidden':0,'k':0,'v':0};self.handles=[];self.used={'hidden':0,'k':0,'v':0}
  def _route(self,kind,x):
-  if self.mode=='capture':self.bank[kind].append(x.detach().to('cpu',dtype=torch.float16));return x
+  if self.mode=='capture':self.bank[self.capture_name][kind].append(x.detach().to('cpu',dtype=torch.float16));return x
   if self.mode!='inject' or kind not in self.args.transplant_mode:return x
   i=self.cursor[kind];self.cursor[kind]+=1
-  if i>=len(self.bank[kind]):return x
-  obj=self.bank[kind][i].to(x.device,x.dtype)
-  if obj.ndim!=3 or x.ndim!=3:return x
-  if obj.shape[1]!=x.shape[1]:obj=F.interpolate(obj.transpose(1,2),size=x.shape[1],mode='linear',align_corners=False).transpose(1,2)
-  if obj.shape[-1]!=x.shape[-1]:return x
+  if i>=min(len(self.bank['object'][kind]),len(self.bank['neutral'][kind])):return x
+  obj=self.bank['object'][kind][i].to(x.device,x.dtype);neutral=self.bank['neutral'][kind][i].to(x.device,x.dtype)
+  if obj.shape!=neutral.shape or obj.ndim!=3 or x.ndim!=3:return x
+  residual=obj-neutral
+  if residual.shape[1]!=x.shape[1]:residual=F.interpolate(residual.transpose(1,2),size=x.shape[1],mode='linear',align_corners=False).transpose(1,2)
+  if residual.shape[-1]!=x.shape[-1]:return x
+  # Preserve the target activation distribution; inject a unit-RMS residual
+  # instead of replacing it with an unrelated absolute object trajectory.
+  residual=residual/(residual.float().square().mean(-1,keepdim=True).sqrt().to(x.dtype).clamp_min(1e-5));residual=residual*x.float().square().mean(-1,keepdim=True).sqrt().to(x.dtype)
   gate=soft_gate(self.mask,x.shape[1],x.device,x.dtype);strength=self.args.kv_strength if kind in {'k','v'} else self.args.hidden_strength;self.used[kind]+=1
-  return x*(1-gate*strength)+obj*(gate*strength)
+  return x+residual*(gate*strength)
  def hidden_hook(self,_m,_a,out):
   vals=list(out) if isinstance(out,tuple) else [out];ids=[i for i,x in enumerate(vals) if torch.is_tensor(x) and x.ndim==3]
   if ids:vals[ids[-1]]=self._route('hidden',vals[ids[-1]])
@@ -53,7 +61,7 @@ class ObjectTransplant:
    for kind,name in [('k','to_k'),('v','to_v')]:
     module=getattr(attn,name,None)
     if module is not None:self.handles.append(module.register_forward_hook(self.proj_hook(kind)))
- def capture(self):self.mode='capture';self.bank={k:[] for k in self.bank}
+ def capture(self,name):self.mode='capture';self.capture_name=name;self.bank[name]={k:[] for k in self.bank[name]}
  def inject(self):self.mode='inject';self.cursor={k:0 for k in self.cursor};self.used={k:0 for k in self.used}
  def close(self):
   for h in self.handles:h.remove()
@@ -66,16 +74,18 @@ def call(pipe,image,prompt,args,seed,output_type='pil',latents=None):
 def transplant_edit(pipe,scene,reference,collage,name,mask,args,seed):
  controller=ObjectTransplant(pipe,args,mask);controller.install()
  try:
-  controller.capture();call(pipe,reference,f'Preserve this isolated {name} exactly.',args,seed,'latent')
+  neutral=Image.new('RGB',reference.size,'white');capture_prompt='Preserve Image 1 exactly without adding or changing anything.'
+  controller.capture('neutral');call(pipe,neutral,capture_prompt,args,seed,'latent')
+  controller.capture('object');call(pipe,reference,capture_prompt,args,seed,'latent')
   controller.inject();prompt=(f'Naturally integrate the newly placed {name}. Preserve its identity and complete structure, and preserve all existing scene content. Adjust only perspective, light, contact and shadow.')
   result=call(pipe,collage,prompt,args,seed,'pil');image=(result[0] if isinstance(result,list) else result).convert('RGB')
  finally:controller.close()
- return image,{'captured':{k:len(v) for k,v in controller.bank.items()},'used':controller.used,'mode':args.transplant_mode}
+ return image,{'captured':{n:{k:len(v) for k,v in bank.items()} for n,bank in controller.bank.items()},'used':controller.used,'mode':args.transplant_mode,'injection':'normalized_object_minus_neutral_residual'}
 
 def parser():
  parent=e4.build_parser(add_help=False);p=argparse.ArgumentParser(parents=[parent],formatter_class=argparse.ArgumentDefaultsHelpFormatter,conflict_handler='resolve')
  p.set_defaults(out_dir='results/qwen_e5_object_feature_transplant')
- p.add_argument('--transplant_mode',choices=('hidden','kv','hybrid'),default='hybrid');p.add_argument('--transplant_layers',type=int,default=8);p.add_argument('--hidden_strength',type=float,default=.22);p.add_argument('--kv_strength',type=float,default=.18);return p
+ p.add_argument('--transplant_mode',choices=('hidden','kv','hybrid'),default='hidden');p.add_argument('--transplant_layers',type=int,default=6);p.add_argument('--hidden_strength',type=float,default=.06);p.add_argument('--kv_strength',type=float,default=.03);return p
 
 def main():
  args=parser().parse_args();args.transplant_mode={'hybrid':'hiddenkv'}.get(args.transplant_mode,args.transplant_mode)
