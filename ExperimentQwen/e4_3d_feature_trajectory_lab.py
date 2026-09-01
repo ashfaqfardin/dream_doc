@@ -49,7 +49,7 @@ class ActivationRecorder:
    if x is None:return output
    invocation=self.calls.get(layer,0);self.calls[layer]=invocation+1;start=0 if self.segment=='output' else self.output_tokens
    if x.shape[1]<start+self.output_tokens:return output
-   ids=torch.as_tensor(self.indices+start,device=x.device);features=x[0].index_select(0,ids).detach().to('cpu',dtype=torch.float16).numpy()
+   ids=torch.as_tensor(self.indices+start,device=x.device);features=x[0].index_select(0,ids).detach().to('cpu',dtype=torch.float32).numpy()
    self.records.append({'trajectory':self.trajectory,'layer':layer,'step':invocation,'segment':self.segment,'indices':self.indices.copy(),'features':features})
    return output
   return hook
@@ -88,11 +88,22 @@ class QKAffinityRecorder:
   for h in self.handles:h.remove()
 
 def randomized_pca(records,projection_dim,seed):
- features=np.concatenate([r['features'].astype(np.float32) for r in records]);d=features.shape[1];rng=np.random.default_rng(seed);projection=rng.normal(0,1/math.sqrt(projection_dim),(d,min(d,projection_dim))).astype(np.float32)
- reduced=features@projection;mean=reduced.mean(0,keepdims=True);centered=reduced-mean;_,_,vt=np.linalg.svd(centered,full_matrices=False);xyz=centered@vt[:3].T
+ if not records:raise RuntimeError('No transformer activations were captured; cannot compute PCA.')
+ raw=np.concatenate([r['features'].astype(np.float32,copy=False) for r in records]);nonfinite=int((~np.isfinite(raw)).sum());features=np.nan_to_num(raw,nan=0.0,posinf=0.0,neginf=0.0)
+ # Normalize only the numerical scale, jointly across all trajectories. This
+ # preserves their relative geometry while preventing projection overflow.
+ finite_abs=np.abs(features);scale=float(np.quantile(finite_abs,.999)) if finite_abs.size else 1.0
+ if not np.isfinite(scale) or scale<1e-8:scale=1.0
+ features=np.clip(features/scale,-1.0,1.0);d=features.shape[1];target=min(d,projection_dim);rng=np.random.default_rng(seed);projection=rng.normal(0,1/math.sqrt(target),(d,target)).astype(np.float32)
+ reduced=features@projection;reduced=np.nan_to_num(reduced,nan=0.0,posinf=0.0,neginf=0.0);mean=reduced.mean(0,keepdims=True);centered=reduced-mean
+ try:_,_,vt=np.linalg.svd(centered,full_matrices=False)
+ except np.linalg.LinAlgError:
+  # Symmetric eigendecomposition is a robust fallback for rare LAPACK SVD failures.
+  covariance=centered.T@centered/max(1,len(centered)-1);values,vectors=np.linalg.eigh(covariance);vt=vectors[:,np.argsort(values)[::-1]].T
+ xyz=centered@vt[:3].T
  cursor=0
  for record in records:n=len(record['features']);record['xyz']=xyz[cursor:cursor+n];cursor+=n
- return {'feature_dim':d,'projection_dim':projection.shape[1],'explained_variance':np.var(xyz,axis=0).tolist()}
+ return {'feature_dim':d,'projection_dim':projection.shape[1],'explained_variance':np.var(xyz,axis=0).tolist(),'nonfinite_values_replaced':nonfinite,'robust_scale_p999':scale}
 
 def reference_centroids(records):
  return {(r['layer'],r['step']):r['features'].astype(np.float32).mean(0) for r in records if r['trajectory']=='reference'}
@@ -103,7 +114,7 @@ def identity_metrics(records):
   if r['trajectory'] not in {'generic','replacement'}:continue
   center=centers.get((r['layer'],r['step']))
   if center is None:continue
-  x=r['features'].astype(np.float32);similarity=(x@center)/(np.linalg.norm(x,axis=1)*np.linalg.norm(center)+1e-8);r['identity_similarity']=similarity
+  x=np.nan_to_num(r['features'].astype(np.float32),nan=0.0,posinf=0.0,neginf=0.0);center=np.nan_to_num(center,nan=0.0,posinf=0.0,neginf=0.0);similarity=(x@center)/(np.linalg.norm(x,axis=1)*np.linalg.norm(center)+1e-8);similarity=np.nan_to_num(similarity,nan=0.0,posinf=0.0,neginf=0.0);r['identity_similarity']=similarity
   result.append({'trajectory':r['trajectory'],'layer':r['layer'],'step':r['step'],'mean':float(similarity.mean()),'max':float(similarity.max()),'p95':float(np.quantile(similarity,.95))})
  return result
 
