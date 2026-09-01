@@ -25,7 +25,8 @@ from e1_baseline import fit,infer,load_pipe,make_generator,save_json
 HERE=Path(__file__).resolve().parent
 
 def pipeline_call(pipe,image,prompt,args,seed,output_type='latent'):
- out=pipe(image=[image],prompt=prompt,negative_prompt=args.negative_prompt if args.true_cfg_scale>1 else None,
+ images=image if isinstance(image,list) else [image]
+ out=pipe(image=images,prompt=prompt,negative_prompt=args.negative_prompt if args.true_cfg_scale>1 else None,
   true_cfg_scale=args.true_cfg_scale,num_inference_steps=args.steps,width=args.width,height=args.height,
   generator=make_generator(args.device,seed),output_type=output_type)
  return out.images if hasattr(out,'images') else out[0]
@@ -34,21 +35,12 @@ def image_tensor(output):
  value=output[0] if isinstance(output,(list,tuple)) else output
  return value.convert('RGB') if isinstance(value,Image.Image) else value
 
-def compress_tokens(x,count):
- if x.shape[1]<=count:return x
- return F.adaptive_avg_pool1d(x.transpose(1,2),count).transpose(1,2)
-
 class PrefixMemoryRouter:
- """Gated residual cross-attention to reference prefix tokens.
-
-Native Qwen K/V are untouched. This avoids the activation collapse caused by
-absolute K/V replacement. All stored tensors are block outputs from matched
-timesteps and identical prompts/noise.
- """
+ """Causal feature replay around native Qwen multi-image attention."""
  def __init__(self,pipe,args):
   blocks=list(pipe.transformer.transformer_blocks);chosen=args.router_layers
   self.layers=[i for i in chosen if 0<=i<len(blocks)];self.blocks=blocks;self.args=args
-  self.mode='off';self.capture_name='';self.cursor=0;self.handles=[];self.banks={n:[] for n in ('scene','placed','neutral','reference')};self.active=False;self.stats=[]
+  self.mode='off';self.capture_name='';self.cursor=0;self.handles=[];self.banks={n:[] for n in ('scene','placed')};self.active=False;self.stats=[]
  def _image_index(self,output):
   values=list(output) if isinstance(output,tuple) else [output]
   # QwenImageTransformerBlock returns (text, image).
@@ -59,31 +51,26 @@ timesteps and identical prompts/noise.
    if index is None:return output
    x=values[index]
    if self.mode=='capture':
-    if self.capture_name in {'neutral','reference'}:stored=compress_tokens(x,self.args.prefix_tokens)
-    else:stored=x
-    self.banks[self.capture_name].append(stored.detach().to('cpu',dtype=torch.float16));return output
+    self.banks[self.capture_name].append(x.detach().to('cpu',dtype=torch.float16));return output
    if self.mode!='route':return output
    k=self.cursor;self.cursor+=1
    if k>=min(map(len,self.banks.values())):return output
    scene=self.banks['scene'][k].to(x.device,x.dtype);placed=self.banks['placed'][k].to(x.device,x.dtype)
-   neutral=self.banks['neutral'][k].to(x.device,x.dtype);reference=self.banks['reference'][k].to(x.device,x.dtype)
-   if scene.shape!=x.shape or placed.shape!=x.shape or neutral.shape!=reference.shape:return output
+   # Replacement has two conditioning images and therefore may contain more
+   # image tokens than the one-image capture runs. Replay only the generated
+   # output-token prefix shared by both trajectories.
+   n=min(scene.shape[1],placed.shape[1],x.shape[1]);scene=scene[:,:n];placed=placed[:,:n];target=x[:,:n]
+   if scene.shape!=placed.shape or scene.shape[-1]!=x.shape[-1]:return output
    # Causal activation patching: tokens changed by prompt-only placement form
    # the soft target-query gate; no segmentation mask is involved.
    delta=(placed-scene).float().square().mean(-1,keepdim=True).sqrt();norm=delta.mean(1,keepdim=True).clamp_min(1e-6)
    edit_gate=torch.sigmoid((delta/norm-self.args.edit_gate_center)/self.args.gate_temperature).to(x.dtype)
-   # Reference-minus-neutral removes the blank reference canvas and matched
-   # noise trajectory, leaving an object-specific continuous prefix.
-   prefix=reference-neutral;q=F.normalize(x.float(),dim=-1);keys=F.normalize(prefix.float(),dim=-1)
-   logits=torch.matmul(q,keys.transpose(-1,-2))/self.args.attention_temperature
-   attention=logits.softmax(-1);retrieved=torch.matmul(attention,prefix.float()).to(x.dtype)
-   retrieved=retrieved/(retrieved.float().square().mean(-1,keepdim=True).sqrt().to(x.dtype).clamp_min(1e-5));retrieved=retrieved*x.float().square().mean(-1,keepdim=True).sqrt().to(x.dtype)
-   confidence=attention.max(-1,keepdim=True).values.to(x.dtype);route=torch.sigmoid((confidence-self.args.confidence_center)/self.args.gate_temperature)
-   # Preserve accepted scene outside the causal region, retrieve reference
-   # inside it, and keep both interventions bounded residuals.
-   preserve=(1-edit_gate)*self.args.scene_replay_strength;inject=edit_gate*route*self.args.prefix_strength
-   y=x+(scene-x)*preserve+retrieved*inject;values[index]=y;self.active=True
-   self.stats.append({'layer':layer,'edit_gate':float(edit_gate.mean()),'route':float(route.mean()),'preserve':float(preserve.mean()),'inject':float(inject.mean())})
+   # Native Qwen attention receives the full reference as Image 2. We only
+   # replay the accepted scene outside the causal target region; inside it,
+   # queries remain untouched and can retrieve native high-resolution
+   # reference tokens.
+   preserve=(1-edit_gate)*self.args.scene_replay_strength;y=x.clone();y[:,:n]=target+(scene-target)*preserve;values[index]=y;self.active=True
+   self.stats.append({'layer':layer,'edit_gate':float(edit_gate.mean()),'preserve':float(preserve.mean())})
    return tuple(values) if was_tuple else values[0]
   return hook
  def install(self):self.handles=[self.blocks[i].register_forward_hook(self._hook(i)) for i in self.layers]
@@ -94,19 +81,16 @@ timesteps and identical prompts/noise.
  def report(self):
   return {'active':self.active,'layers':self.layers,'captured':{k:len(v) for k,v in self.banks.items()},'samples':len(self.stats),
    'mean_edit_gate':float(np.mean([x['edit_gate'] for x in self.stats])) if self.stats else 0,
-   'mean_route_gate':float(np.mean([x['route'] for x in self.stats])) if self.stats else 0,
-   'mean_prefix_injection':float(np.mean([x['inject'] for x in self.stats])) if self.stats else 0}
+   'mean_scene_preservation':float(np.mean([x['preserve'] for x in self.stats])) if self.stats else 0,
+   'reference_path':'native_multi_image_attention'}
 
 def routed_replace(pipe,accepted,placed,reference,name,args,seed):
  router=PrefixMemoryRouter(pipe,args);router.install();matched='Preserve Image 1 exactly without adding, removing, or changing anything.'
- neutral=Image.new('RGB',reference.size,(255,255,255))
  try:
   router.capture('scene');pipeline_call(pipe,accepted,matched,args,seed)
   router.capture('placed');pipeline_call(pipe,placed,matched,args,seed)
-  router.capture('neutral');pipeline_call(pipe,neutral,matched,args,seed)
-  router.capture('reference');pipeline_call(pipe,reference,matched,args,seed)
-  router.route();prompt=(f'Replace only the newly added generic {name} with the exact {name} identity, color, material and structure represented by the external reference memory. Keep its current location, scale, pose, perspective, contact and shadow. Preserve the complete scene and all previous objects.')
-  output=pipeline_call(pipe,placed,prompt,args,seed,'pil');result=image_tensor(output)
+  router.route();prompt=(f'Image 1 is the current scene and contains one newly added generic {name}. Image 2 shows the exact reference {name}. Edit only Image 1: replace that generic {name} with the exact identity from Image 2, preserving its distinctive colors, materials, parts, proportions and design. Keep the generic object location, approximate pose, perspective, support contact and shadow. Preserve the complete scene and every previous object. Do not copy the white background, create a panel, or replace the scene with Image 2.')
+  output=pipeline_call(pipe,[placed,reference],prompt,args,seed,'pil');result=image_tensor(output)
  finally:router.close()
  return result,router.report()
 
@@ -121,7 +105,7 @@ def parser():
  p=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
  p.add_argument('--prompts',default=str(HERE/'e3_prompts.json'));p.add_argument('--out_dir',default='results/qwen_e4_query_routed');p.add_argument('--case_ids',type=int,nargs='+');p.add_argument('--max_objects',type=int);p.add_argument('--resume',action=argparse.BooleanOptionalAction,default=True);p.add_argument('--missing_policy',choices=('skip','error'),default='skip')
  p.add_argument('--model_id',default='Qwen/Qwen-Image-Edit-2509');p.add_argument('--lightning_repo',default='lightx2v/Qwen-Image-Lightning');p.add_argument('--lightning_weight',default='Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors');p.add_argument('--lora_scale',type=float,default=1);p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--object_seed',type=int,default=1337);p.add_argument('--true_cfg_scale',type=float,default=1);p.add_argument('--negative_prompt',default=' ')
- p.add_argument('--router_layers',type=int,nargs='+',default=[20,30,40,50]);p.add_argument('--prefix_tokens',type=int,default=32);p.add_argument('--prefix_strength',type=float,default=.035);p.add_argument('--scene_replay_strength',type=float,default=.12);p.add_argument('--edit_gate_center',type=float,default=1);p.add_argument('--confidence_center',type=float,default=.05);p.add_argument('--gate_temperature',type=float,default=.15);p.add_argument('--attention_temperature',type=float,default=.25);p.add_argument('--retries',type=int,default=1);return p.parse_args()
+ p.add_argument('--router_layers',type=int,nargs='+',default=[20,30,40,50]);p.add_argument('--scene_replay_strength',type=float,default=.12);p.add_argument('--edit_gate_center',type=float,default=1);p.add_argument('--gate_temperature',type=float,default=.15);p.add_argument('--retries',type=int,default=1);return p.parse_args()
 
 def main():
  args=parser();
