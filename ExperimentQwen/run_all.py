@@ -58,6 +58,7 @@ EXPERIMENTS = [
         ],
         "requires": [HERE / "e3_prompts.json", HERE / "object_canny"],
     },
+    {"id":"e4","name":"Feature/Frequency-Locked Verified Insertion","script":HERE/"e4_feature_frequency_locked_insertion.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_feature_frequency")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
 ]
 
 

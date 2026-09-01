@@ -43,6 +43,9 @@ class SAM:
   mask=np.asarray(masks)[int(np.asarray(scores).argmax())];alpha=Image.fromarray(np.uint8(mask)*255);tight=alpha.getbbox()
   if tight is None:raise RuntimeError(f'SAM returned empty mask for {name}')
   return Cutout(name,image.crop(tight),alpha.crop(tight),tuple(map(int,tight)))
+ def box_mask(self,image,box):
+  self.predictor.set_image(np.array(image.convert('RGB'),dtype=np.uint8,copy=True));masks,scores,_=self.predictor.predict(box=np.asarray(box,dtype=np.float32),multimask_output=True)
+  return Image.fromarray(np.uint8(np.asarray(masks)[int(np.asarray(scores).argmax())])*255)
 
 class DifferenceCutout:
  """Fallback for E1/E2 references, which are generated on a plain background."""
