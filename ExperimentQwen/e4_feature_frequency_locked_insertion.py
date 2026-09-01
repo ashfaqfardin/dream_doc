@@ -67,12 +67,14 @@ def verify(scene,collage,result):
  region=intended>max(4,float(np.quantile(intended,.9)));inside=float(actual[region].mean()) if region.any() else 0;outside=float(actual[~region].mean()) if (~region).any() else 0
  return {'object_change':inside,'background_change':outside,'score':inside-1.5*outside,'passed':inside>=8 and outside<=12}
 
-def args_parser():
- p=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def build_parser(add_help=True):
+ p=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,add_help=add_help)
  p.add_argument('--prompts',default=str(HERE/'e3_prompts.json'));p.add_argument('--out_dir',default='results/qwen_e4_feature_memory');p.add_argument('--case_ids',type=int,nargs='+');p.add_argument('--max_objects',type=int);p.add_argument('--resume',action=argparse.BooleanOptionalAction,default=True);p.add_argument('--missing_policy',choices=('skip','error'),default='skip')
  p.add_argument('--model_id',default='Qwen/Qwen-Image-Edit-2509');p.add_argument('--lightning_repo',default='lightx2v/Qwen-Image-Lightning');p.add_argument('--lightning_weight',default='Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors');p.add_argument('--lora_scale',type=float,default=1);p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--object_seed',type=int,default=1337);p.add_argument('--true_cfg_scale',type=float,default=1);p.add_argument('--negative_prompt',default=' ')
  p.add_argument('--mask_backend',choices=('auto','sam2','difference'),default='auto');p.add_argument('--sam_model_id',default='facebook/sam2-hiera-small');p.add_argument('--sam_device',default='cpu');p.add_argument('--background_threshold',type=float,default=24);p.add_argument('--probe_steps',type=int,default=4);p.add_argument('--probe_quantile',type=float,default=.88);p.add_argument('--probe_blur',type=float,default=1.2);p.add_argument('--box_margin',type=int,default=24);p.add_argument('--occupancy_margin',type=int,default=24);p.add_argument('--default_object_height',type=float,default=.22);p.add_argument('--object_height_priors');p.add_argument('--object_scale',type=float,default=.92)
- p.add_argument('--memory_layers',type=int,default=8);p.add_argument('--scene_replay_strength',type=float,default=.30);p.add_argument('--object_replay_strength',type=float,default=.20);p.add_argument('--similarity_threshold',type=float,default=.82);p.add_argument('--gate_temperature',type=float,default=.12);p.add_argument('--retries',type=int,default=1);return p.parse_args()
+ p.add_argument('--memory_layers',type=int,default=8);p.add_argument('--scene_replay_strength',type=float,default=.30);p.add_argument('--object_replay_strength',type=float,default=.20);p.add_argument('--similarity_threshold',type=float,default=.82);p.add_argument('--gate_temperature',type=float,default=.12);p.add_argument('--retries',type=int,default=1);return p
+
+def args_parser():return build_parser().parse_args()
 
 def main():
  args=args_parser();
