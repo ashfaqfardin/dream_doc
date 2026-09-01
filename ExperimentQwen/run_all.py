@@ -50,7 +50,7 @@ EXPERIMENTS = [
     },
     {
         "id": "e3",
-        "name": "JSON Prompt Suite: 20 Scenes with Incremental Reference Insertions",
+        "name": "E2 Pipeline at Scale: 20-Scene JSON Prompt Suite",
         "script": HERE / "e3_prompt_suite_baseline.py",
         "args": [
             "--prompts", str(HERE / "e3_prompts.json"),

@@ -1,8 +1,8 @@
-"""E3: JSON-driven multi-scene Qwen object-insertion benchmark.
+"""E3: JSON-driven multi-scene evaluation of the E2 insertion pipeline.
 
 The prompt suite is the source of truth: each case creates its own base image,
-turns the listed Canny/sketch images into reusable reference objects, and adds
-those references incrementally. Outputs are resumable at object-step level.
+turns the listed Canny/sketch images into reusable reference objects, then uses
+E2's counterfactual placement + SAM collage + protected Qwen repaint pipeline.
 """
 from __future__ import annotations
 
@@ -11,10 +11,13 @@ import json
 import re
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 from tqdm.auto import tqdm
 
 from e1_baseline import fit, infer, load_pipe, save_json
+from e2_sam_collage_repaint import (
+    composite, load_segmenter, place_cutout, probe_placement, protect_scene,
+)
 
 
 HERE = Path(__file__).resolve().parent
@@ -105,7 +108,22 @@ def generate_references(pipe, cases, args, out: Path, prompt_file: Path):
     return records
 
 
-def run_case(pipe, case: dict, references: dict, args, out: Path):
+def generate_cutouts(segmenter, references, args, out: Path):
+    cutout_dir = out / "cutouts"
+    cutout_dir.mkdir(parents=True, exist_ok=True)
+    cutouts = {}
+    for key, record in tqdm(references.items(), desc="E3 reference cutouts", unit="object"):
+        if record.get("status") != "ready":
+            continue
+        image = Image.open(record["image"]).convert("RGB").resize((args.width, args.height))
+        cutout = segmenter.cutout(record["name"], image, args.background_threshold)
+        cutout.rgb.save(cutout_dir / f"{key}_rgb.png")
+        cutout.alpha.save(cutout_dir / f"{key}_alpha.png")
+        cutouts[key] = cutout
+    return cutouts
+
+
+def run_case(pipe, case: dict, references: dict, cutouts: dict, mask_backend: str, args, out: Path):
     case_id = int(case["id"])
     case_dir = out / "cases" / f"case_{case_id:03d}"
     steps_dir = case_dir / "steps"
@@ -120,6 +138,7 @@ def run_case(pipe, case: dict, references: dict, args, out: Path):
         base.save(base_path)
 
     current = base
+    occupied = Image.new("L", current.size)
     history = []
     objects = case["objects"][: args.max_objects or None]
     for index, item in enumerate(tqdm(objects, desc=f"Case {case_id:03d}", unit="object", leave=False), 1):
@@ -131,24 +150,45 @@ def run_case(pipe, case: dict, references: dict, args, out: Path):
             continue
         if after_path.is_file() and args.resume:
             current = Image.open(after_path).convert("RGB")
+            prior_mask = steps_dir / f"{index:02d}_{slug(item['name'])}_mask.png"
+            if prior_mask.is_file():
+                occupied = ImageChops.lighter(occupied, Image.open(prior_mask).convert("L"))
             history.append({"step": index, "name": item["name"], "status": "resumed", "after": str(after_path)})
             continue
-        reference = fit(Image.open(record["image"]), (args.width, args.height))
         before_path = steps_dir / f"{index:02d}_{slug(item['name'])}_before.png"
         current.save(before_path)
+        object_name = item["name"]
+        heatmap_path = steps_dir / f"{index:02d}_{slug(object_name)}_placement_heatmap.png"
+        box, probe_info = probe_placement(
+            pipe, current, object_name, cutouts[key], occupied, args,
+            args.seed + case_id * 100000 + index * 1000, heatmap_path,
+        )
+        object_canvas, mask, placed_box = place_cutout(cutouts[key], box, current.size, args.object_scale)
+        collage = composite(current, object_canvas, mask)
+        collage_path = steps_dir / f"{index:02d}_{slug(object_name)}_collage.png"
+        mask_path = steps_dir / f"{index:02d}_{slug(object_name)}_mask.png"
+        collage.save(collage_path)
+        mask.save(mask_path)
         prompt = (
-            f"Image 1 is the current scene. Image 2 contains the exact {item['name']} reference. Edit only Image 1: "
-            f"add exactly one complete {item['name']} from Image 2 at the most physically plausible unoccupied location. "
-            "Preserve the reference identity, geometry, colors, materials and proportions while adapting only scale, "
-            "perspective, illumination, support contact, occlusion and shadow. Preserve the scene and every existing object. "
-            "Do not replace the scene, copy the white reference background, create a panel, or duplicate an object."
+            f"Image 1 is the scene containing one newly pasted {object_name} already at its required location. "
+            f"Harmonize that pasted {object_name} without moving, removing, duplicating or redesigning it. Preserve its "
+            "identity, colors, materials, structure, pose and proportions. Correct only its boundary, local perspective, "
+            "lighting, contact shadow and physical integration. Preserve every other pixel and every existing object."
         )
         edit_seed = args.seed + case_id * 10000 + index * 100
-        current = infer(pipe, [current, reference], prompt, args, edit_seed)
+        raw = infer(pipe, [collage], prompt, args, edit_seed)
+        raw_path = steps_dir / f"{index:02d}_{slug(object_name)}_raw_qwen.png"
+        raw.save(raw_path)
+        current, zone, halo = protect_scene(current, raw, object_canvas, mask, args)
+        zone.save(steps_dir / f"{index:02d}_{slug(object_name)}_object_zone.png")
+        halo.save(steps_dir / f"{index:02d}_{slug(object_name)}_interaction_halo.png")
         current.save(after_path)
+        occupied = ImageChops.lighter(occupied, mask)
         history.append({
             "step": index, "name": item["name"], "status": "generated", "seed": edit_seed,
+            "mask_backend": mask_backend, "placement_backend": "denoise_delta",
             "reference": record["image"], "before": str(before_path), "after": str(after_path),
+            "configured_box": list(box), "placed_box": list(placed_box), "probe": probe_info,
         })
         save_json(history, case_dir / "history.json")
     current.save(case_dir / "FINAL.png")
@@ -177,6 +217,23 @@ def parse_args():
     parser.add_argument("--object_seed", type=int, default=1337)
     parser.add_argument("--true_cfg_scale", type=float, default=1.0)
     parser.add_argument("--negative_prompt", default=" ")
+    parser.add_argument("--mask_backend", choices=("auto", "sam2", "difference"), default="auto")
+    parser.add_argument("--sam_model_id", default="facebook/sam2-hiera-small")
+    parser.add_argument("--sam_device", default="cpu")
+    parser.add_argument("--background_threshold", type=float, default=24)
+    parser.add_argument("--probe_steps", type=int, default=4)
+    parser.add_argument("--probe_quantile", type=float, default=.88)
+    parser.add_argument("--probe_blur", type=float, default=1.2)
+    parser.add_argument("--box_margin", type=int, default=24)
+    parser.add_argument("--occupancy_margin", type=int, default=24)
+    parser.add_argument("--default_object_height", type=float, default=.25)
+    parser.add_argument("--object_height_priors", default=None)
+    parser.add_argument("--object_scale", type=float, default=.92)
+    parser.add_argument("--boundary_px", type=int, default=12)
+    parser.add_argument("--interaction_px", type=int, default=28)
+    parser.add_argument("--feather_px", type=float, default=5)
+    parser.add_argument("--preserve_reference_core", action="store_true")
+    parser.add_argument("--core_erode_px", type=int, default=3)
     return parser.parse_args()
 
 
@@ -187,11 +244,13 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     cases = select_cases(load_suite(prompt_file), args.case_ids)
     save_json(vars(args), out / "config.json")
+    segmenter, active_mask_backend = load_segmenter(args)
     pipe = load_pipe(args)
     references = generate_references(pipe, cases, args, out, prompt_file)
+    cutouts = generate_cutouts(segmenter, references, args, out)
     summary = []
     for case in tqdm(cases, desc="E3 prompt suite", unit="case"):
-        summary.append(run_case(pipe, case, references, args, out))
+        summary.append(run_case(pipe, case, references, cutouts, active_mask_backend, args, out))
         save_json(summary, out / "summary.json")
     print(f"Done: {len(summary)} case(s). Results: {out}")
 
