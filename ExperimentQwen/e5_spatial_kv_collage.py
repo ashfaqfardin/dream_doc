@@ -58,6 +58,12 @@ def load_rmbg2_model(model_id: str, revision: str):
 
     def compatible_conversion_mapping(model, *args, **kwargs):
         patched = 0
+        # Transformers 5 expects this bookkeeping attribute to have been
+        # created by the contemporary PreTrainedModel initialization path.
+        # RMBG-2.0's older remote BiRefNet class does not create it and has no
+        # tied parameters, so an empty mapping is the correct representation.
+        if not hasattr(model, "all_tied_weights_keys"):
+            model.all_tied_weights_keys = {}
         for module in model.modules():
             config = getattr(module, "config", None)
             if config is None or hasattr(config, "model_type"):
