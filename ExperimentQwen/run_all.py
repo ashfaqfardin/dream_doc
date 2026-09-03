@@ -59,7 +59,7 @@ EXPERIMENTS = [
         "requires": [HERE / "e3_prompts.json", HERE / "object_canny"],
     },
     {"id":"e4","name":"3D Feature Trajectory and Reference-Attention Lab","script":HERE/"e4_3d_feature_trajectory_lab.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_3d_lab")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
-    {"id":"e5","name":"One-Pass [Base, Collage, Object] Feature Routing with RMBG-2.0","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
+    {"id":"e5","name":"One-Pass Collage-Primary Residual Feature Routing with RMBG-2.0","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -81,7 +81,9 @@ def parse_args():
     parser.add_argument("--e4_skip_depth", action="store_true", help="Use image-y as E4's depth proxy instead of loading Depth Anything")
     parser.add_argument("--e5_case_ids", type=int, nargs="+", help="Subset of E3 prompt-suite cases for E5")
     parser.add_argument("--e5_max_objects", type=int, help="Limit objects per E5 case for a smoke test")
-    parser.add_argument("--e5_kv_layers", default="all", help="E5 spatial B/C/O attention-routing layers")
+    parser.add_argument("--e5_kv_layers", default="middle", help="E5 residual routing layers: middle, all, or explicit indices")
+    parser.add_argument("--e5_base_weight", type=float, default=.15, help="Weak aligned base residual strength")
+    parser.add_argument("--e5_identity_weight", type=float, default=.35, help="Foreground identity residual strength")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -202,7 +204,11 @@ def main():
             if args.e4_skip_depth:
                 command.append("--skip_depth")
         if experiment["id"] == "e5":
-            command.extend(["--kv_layers", args.e5_kv_layers])
+            command.extend([
+                "--kv_layers", args.e5_kv_layers,
+                "--base_residual_weight", str(args.e5_base_weight),
+                "--identity_residual_weight", str(args.e5_identity_weight),
+            ])
             if args.e5_case_ids:
                 command.extend(["--case_ids", *map(str, args.e5_case_ids)])
             if args.e5_max_objects is not None:
