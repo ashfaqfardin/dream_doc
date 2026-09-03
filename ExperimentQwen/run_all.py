@@ -59,7 +59,7 @@ EXPERIMENTS = [
         "requires": [HERE / "e3_prompts.json", HERE / "object_canny"],
     },
     {"id":"e4","name":"3D Feature Trajectory and Reference-Attention Lab","script":HERE/"e4_3d_feature_trajectory_lab.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_3d_lab")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
-    {"id":"e5","name":"One-Pass Collage with Spatial Base K/V Sharing","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
+    {"id":"e5","name":"One-Pass Collage with Spatial Base K/V Sharing","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
 ]
 
 

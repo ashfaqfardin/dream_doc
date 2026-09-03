@@ -238,10 +238,10 @@ def run_case(pipe, kv_share, case, references, cutouts, args, out: Path):
 
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--prompts", default=str(HERE / "e3_prompts.json"))
+    parser.add_argument("--prompts", default=str(HERE / "e5_prompts.json"))
     parser.add_argument("--out_dir", default="results/qwen_e5_spatial_kv_collage")
     parser.add_argument("--case_ids", type=int, nargs="+")
-    parser.add_argument("--max_objects", type=int)
+    parser.add_argument("--max_objects", type=int, default=3, choices=(1, 2, 3), help="E5 is capped at three objects per scene")
     parser.add_argument("--missing_policy", choices=("skip", "error"), default="skip")
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--model_id", default="Qwen/Qwen-Image-Edit-2509")
