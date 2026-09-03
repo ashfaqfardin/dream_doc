@@ -18,17 +18,16 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageChops
 from tqdm.auto import tqdm
 
 from e1_baseline import load_pipe, make_generator, save_json
-from e2_sam_collage_repaint import probe_placement
+from e2_sam_collage_repaint import place_cutout, probe_placement
 from e3_prompt_suite import generate_references, load_suite, reference_key, select_cases, slug
 from e5_spatial_kv_collage import (
     RMBG2Cutout,
     generate_base,
     generate_rmbg_cutouts,
-    object_condition,
     parse_layer_spec,
 )
 
@@ -36,18 +35,14 @@ from e5_spatial_kv_collage import (
 HERE = Path(__file__).resolve().parent
 
 
-def placement_mask(box, size, cutout_alpha, args):
-    """Map the cutout silhouette into the proposed placement box."""
-    x0, y0, x1, y1 = map(int, box)
-    width, height = max(1, x1 - x0), max(1, y1 - y0)
-    alpha = cutout_alpha.resize((width, height), Image.Resampling.LANCZOS)
-    mask = Image.new("L", size)
-    mask.paste(alpha, (x0, y0))
-    if args.placement_dilation_px > 0:
-        mask = mask.filter(ImageFilter.MaxFilter(2 * args.placement_dilation_px + 1))
-    if args.placement_blur_px > 0:
-        mask = mask.filter(ImageFilter.GaussianBlur(args.placement_blur_px))
-    return mask
+def aligned_object_bank(cutout, box, size, args):
+    """Place O on a neutral canvas at its intended output coordinates."""
+    raw_canvas, alpha, placed_box = place_cutout(cutout, box, size, args.object_scale)
+    bank = Image.new("RGB", size, args.object_condition_background)
+    # Alpha compositing removes source-background pixels from the RGB bank;
+    # alpha itself is retained separately for foreground-token selection.
+    bank.paste(raw_canvas, (0, 0), alpha)
+    return bank, alpha, placed_box
 
 
 @torch.inference_mode()
@@ -279,7 +274,11 @@ class MaskedObjectAttention:
         bias = torch.zeros((1, 1, nx, total), dtype=torch.float32, device=device)
         object_start = nt + 2 * nx
         bias[:, :, ~inside, object_start:] = -torch.inf
-        bias[:, :, inside, object_start:] = math.log(self.args.object_attention_prior)
+        # Convert a desired *source mass ratio* into a per-token logit bias.
+        # Without this correction, a small O bank is overwhelmed by 2*nx main
+        # image tokens even when every O token has the same individual logit.
+        per_token_ratio = self.args.object_attention_mass * (2 * nx) / max(no, 1)
+        bias[:, :, inside, object_start:] = math.log(per_token_ratio)
         if text_mask is not None:
             invalid = ~text_mask[0].to(device=device, dtype=torch.bool)
             bias[:, :, :, :nt][..., invalid] = -torch.inf
@@ -308,7 +307,7 @@ class MaskedObjectAttention:
         return {
             "mechanism": "masked concatenated base/object K/V with one softmax",
             "injection_layers": self.layers,
-            "object_attention_prior": self.args.object_attention_prior,
+            "object_attention_mass": self.args.object_attention_mass,
             "processor_calls": self.calls,
             "layout": self.layout,
         }
@@ -331,7 +330,7 @@ def run_case(pipe, controller, case, references, cutouts, args, out):
         case["objects"][:args.max_objects], desc=f"E8 case {case_id:03d}", unit="object", leave=False
     ), 1):
         name, key = item["name"], reference_key(item)
-        final = step_dir / f"{index:02d}_{slug(name)}_masked_attention_final.png"
+        final = step_dir / f"{index:02d}_{slug(name)}_aligned_mass_attention_final.png"
         mask_file = step_dir / f"{index:02d}_{slug(name)}_placement_mask.png"
         if args.resume and final.is_file() and mask_file.is_file():
             current = Image.open(final).convert("RGB")
@@ -349,8 +348,10 @@ def run_case(pipe, controller, case, references, cutouts, args, out):
             args.seed + case_id * 100000 + index * 1000,
             step_dir / f"{index:02d}_{slug(name)}_placement_heatmap.png",
         )
-        gate = placement_mask(box, current.size, cutouts[key].alpha, args)
-        object_image, object_alpha = object_condition(cutouts[key], args)
+        object_image, object_alpha, placed_box = aligned_object_bank(
+            cutouts[key], box, current.size, args
+        )
+        gate = object_alpha
         current.save(step_dir / f"{index:02d}_{slug(name)}_base_input.png")
         gate.save(mask_file)
         object_image.save(step_dir / f"{index:02d}_{slug(name)}_private_object_bank.png")
@@ -361,7 +362,9 @@ def run_case(pipe, controller, case, references, cutouts, args, out):
         try:
             output = infer_base_with_private_object(
                 pipe, current, object_image,
-                "Reconstruct Image 1 faithfully without changing its existing contents.",
+                f"Add exactly one complete {name} naturally at the indicated insertion region in Image 1. "
+                f"Preserve the existing scene and use the supplied visual feature reference for the {name}'s "
+                "identity, structure, colors and material. Keep it fully inside the frame.",
                 args, seed,
             )
         finally:
@@ -372,7 +375,7 @@ def run_case(pipe, controller, case, references, cutouts, args, out):
         occupied = ImageChops.lighter(occupied, gate)
         history.append({
             "step": index, "name": name, "status": "generated", "seed": seed,
-            "placement_box": list(box), "placement_probe": probe,
+            "placement_box": list(placed_box), "placement_probe": probe,
             "attention": intervention, "final": str(final), "postprocess": None,
         })
         save_json(history, case_dir / "history.json")
@@ -418,18 +421,16 @@ def parse_args():
     p.add_argument("--occupancy_margin", type=int, default=24)
     p.add_argument("--default_object_height", type=float, default=.25)
     p.add_argument("--object_height_priors")
-    p.add_argument("--injection_layers", default="middle")
-    p.add_argument("--object_attention_prior", type=float, default=.25)
+    p.add_argument("--injection_layers", default="6-35")
+    p.add_argument("--object_attention_mass", type=float, default=.35, help="Desired O-to-main attention mass ratio inside the placement region")
     p.add_argument("--gate_threshold", type=int, default=96)
-    p.add_argument("--placement_dilation_px", type=int, default=6)
-    p.add_argument("--placement_blur_px", type=float, default=1.0)
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    if args.object_attention_prior <= 0:
-        raise ValueError("object_attention_prior must be positive")
+    if args.object_attention_mass <= 0:
+        raise ValueError("object_attention_mass must be positive")
     if not 0 <= args.gate_threshold <= 255:
         raise ValueError("gate_threshold must be in [0,255]")
     if not 0 <= args.object_alpha_low < args.object_alpha_high <= 1:

@@ -93,8 +93,8 @@ def parse_args():
     parser.add_argument("--e6_object_prior", type=float, default=.30, help="E6 object-foreground logit prior")
     parser.add_argument("--e8_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E8")
     parser.add_argument("--e8_max_objects", type=int, help="Limit objects per E8 case")
-    parser.add_argument("--e8_injection_layers", default="middle", help="E8 object-attention layers")
-    parser.add_argument("--e8_object_prior", type=float, default=.25, help="E8 object attention prior")
+    parser.add_argument("--e8_injection_layers", default="6-35", help="E8 object-attention layers")
+    parser.add_argument("--e8_object_mass", type=float, default=.35, help="E8 desired object-to-main attention mass ratio")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -237,7 +237,7 @@ def main():
         if experiment["id"] == "e8":
             command.extend([
                 "--injection_layers", args.e8_injection_layers,
-                "--object_attention_prior", str(args.e8_object_prior),
+                "--object_attention_mass", str(args.e8_object_mass),
             ])
             if args.e8_case_ids:
                 command.extend(["--case_ids", *map(str, args.e8_case_ids)])
