@@ -60,6 +60,7 @@ EXPERIMENTS = [
     },
     {"id":"e4","name":"3D Feature Trajectory and Reference-Attention Lab","script":HERE/"e4_3d_feature_trajectory_lab.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_3d_lab")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
     {"id":"e5","name":"One-Pass Collage-Primary Residual Feature Routing with RMBG-2.0","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
+    {"id":"e6","name":"Block-Sparse Source-Aware Reference Attention","script":HERE/"e6_block_sparse_reference_attention.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e6_block_sparse_attention")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -84,6 +85,11 @@ def parse_args():
     parser.add_argument("--e5_kv_layers", default="middle", help="E5 residual routing layers: middle, all, or explicit indices")
     parser.add_argument("--e5_base_weight", type=float, default=.15, help="Weak aligned base residual strength")
     parser.add_argument("--e5_identity_weight", type=float, default=.35, help="Foreground identity residual strength")
+    parser.add_argument("--e6_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E6")
+    parser.add_argument("--e6_max_objects", type=int, help="Limit objects per E6 case")
+    parser.add_argument("--e6_routing_layers", default="middle", help="E6 routed layers")
+    parser.add_argument("--e6_base_prior", type=float, default=.10, help="E6 local-base logit prior")
+    parser.add_argument("--e6_object_prior", type=float, default=.30, help="E6 object-foreground logit prior")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -213,6 +219,16 @@ def main():
                 command.extend(["--case_ids", *map(str, args.e5_case_ids)])
             if args.e5_max_objects is not None:
                 command.extend(["--max_objects", str(args.e5_max_objects)])
+        if experiment["id"] == "e6":
+            command.extend([
+                "--routing_layers", args.e6_routing_layers,
+                "--base_attention_prior", str(args.e6_base_prior),
+                "--object_attention_prior", str(args.e6_object_prior),
+            ])
+            if args.e6_case_ids:
+                command.extend(["--case_ids", *map(str, args.e6_case_ids)])
+            if args.e6_max_objects is not None:
+                command.extend(["--max_objects", str(args.e6_max_objects)])
         started = time.perf_counter()
         result = subprocess.run(command, cwd=str(ROOT), env=os.environ.copy())
         elapsed = format_duration(time.perf_counter() - started)
