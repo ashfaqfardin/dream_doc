@@ -35,21 +35,67 @@ from e3_prompt_suite import (
 HERE = Path(__file__).resolve().parent
 
 
+def load_rmbg2_model(model_id: str, revision: str):
+    """Load RMBG-2.0 across Transformers 4.x and 5.x.
+
+    RMBG-2.0's remote BiRefNet implementation attaches a small, non-HF
+    ``Config`` object to some nested modules.  Transformers 5 inspects every
+    such object while building its checkpoint conversion map and assumes that
+    ``model_type`` exists.  Add that missing metadata only while this model is
+    being loaded; do not pin/downgrade Transformers because Qwen shares it.
+    """
+    from transformers import AutoModelForImageSegmentation
+    import transformers.modeling_utils as modeling_utils
+
+    original = getattr(modeling_utils, "get_model_conversion_mapping", None)
+    if original is None:
+        return AutoModelForImageSegmentation.from_pretrained(
+            model_id,
+            revision=revision,
+            code_revision=revision,
+            trust_remote_code=True,
+        )
+
+    def compatible_conversion_mapping(model, *args, **kwargs):
+        patched = 0
+        for module in model.modules():
+            config = getattr(module, "config", None)
+            if config is None or hasattr(config, "model_type"):
+                continue
+            try:
+                config.model_type = "birefnet"
+            except (AttributeError, TypeError):
+                # Handles a possible slotted config in a future remote-code
+                # revision.  The class belongs to RMBG's loaded module.
+                setattr(type(config), "model_type", "birefnet")
+            patched += 1
+        if patched:
+            print(
+                f"RMBG-2.0: supplied model_type metadata to "
+                f"{patched} nested config(s) for Transformers compatibility."
+            )
+        return original(model, *args, **kwargs)
+
+    modeling_utils.get_model_conversion_mapping = compatible_conversion_mapping
+    try:
+        return AutoModelForImageSegmentation.from_pretrained(
+            model_id,
+            revision=revision,
+            code_revision=revision,
+            trust_remote_code=True,
+        )
+    finally:
+        modeling_utils.get_model_conversion_mapping = original
+
+
 class RMBG2Cutout:
     """Soft-alpha foreground extraction using the gated BRIA RMBG-2.0 model."""
 
     def __init__(self, model_id: str, revision: str, device: str, input_size: int):
-        from transformers import AutoModelForImageSegmentation
-
         self.device = torch.device(device)
         self.input_size = input_size
         try:
-            self.model = AutoModelForImageSegmentation.from_pretrained(
-                model_id,
-                revision=revision,
-                code_revision=revision,
-                trust_remote_code=True,
-            ).to(self.device).eval()
+            self.model = load_rmbg2_model(model_id, revision).to(self.device).eval()
         except OSError as exc:
             raise RuntimeError(
                 "RMBG-2.0 is gated. Accept its Hugging Face terms and authenticate "
