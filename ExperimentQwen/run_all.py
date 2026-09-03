@@ -59,7 +59,7 @@ EXPERIMENTS = [
         "requires": [HERE / "e3_prompts.json", HERE / "object_canny"],
     },
     {"id":"e4","name":"3D Feature Trajectory and Reference-Attention Lab","script":HERE/"e4_3d_feature_trajectory_lab.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_3d_lab")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
-    {"id":"e5","name":"One-Pass Collage with Spatial Base K/V Sharing","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
+    {"id":"e5","name":"One-Pass [Base, Collage, Object] Feature Routing with RMBG-2.0","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -81,7 +81,7 @@ def parse_args():
     parser.add_argument("--e4_skip_depth", action="store_true", help="Use image-y as E4's depth proxy instead of loading Depth Anything")
     parser.add_argument("--e5_case_ids", type=int, nargs="+", help="Subset of E3 prompt-suite cases for E5")
     parser.add_argument("--e5_max_objects", type=int, help="Limit objects per E5 case for a smoke test")
-    parser.add_argument("--e5_kv_layers", default="20-49", help="E5 spatial B/C attention-routing layers")
+    parser.add_argument("--e5_kv_layers", default="all", help="E5 spatial B/C/O attention-routing layers")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",

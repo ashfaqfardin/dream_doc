@@ -1,11 +1,9 @@
-"""E5: one-pass collage harmonization with spatial base-image K/V sharing.
+"""E5: one-pass [base, collage, cutout] feature-routed harmonization.
 
-For each insertion Qwen receives [base/current image, collage image]. During
-that single denoising pass, forward hooks replace the collage condition's key
-and value tokens outside the pasted-object gate with the corresponding K/V
-tokens from the base/current image. The raw Qwen result is the final step
-output; there is no pixel-space protection, masking, compositing, or refinement
-after inference.
+RMBG-2.0 creates a soft-alpha object cutout. Qwen receives [base/current image,
+collage image, isolated object cutout]. Output queries use base memory outside
+the edit gate and a controlled collage-geometry/object-identity mixture inside.
+The raw Qwen result is final: no pixel-space operation follows inference.
 
 Target architecture: Qwen-Image-Edit-2509 with diffusers==0.40.0.
 """
@@ -24,9 +22,8 @@ from PIL import Image, ImageChops, ImageFilter
 from tqdm.auto import tqdm
 
 from e1_baseline import fit, infer, load_pipe, save_json
-from e2_sam_collage_repaint import composite, dilate, load_segmenter, place_cutout, probe_placement
+from e2_sam_collage_repaint import Cutout, composite, dilate, place_cutout, probe_placement
 from e3_prompt_suite import (
-    generate_cutouts,
     generate_references,
     load_suite,
     reference_key,
@@ -36,6 +33,87 @@ from e3_prompt_suite import (
 
 
 HERE = Path(__file__).resolve().parent
+
+
+class RMBG2Cutout:
+    """Soft-alpha foreground extraction using the gated BRIA RMBG-2.0 model."""
+
+    def __init__(self, model_id: str, device: str, input_size: int):
+        from transformers import AutoModelForImageSegmentation
+
+        self.device = torch.device(device)
+        self.input_size = input_size
+        try:
+            self.model = AutoModelForImageSegmentation.from_pretrained(
+                model_id, trust_remote_code=True
+            ).to(self.device).eval()
+        except OSError as exc:
+            raise RuntimeError(
+                "RMBG-2.0 is gated. Accept its Hugging Face terms and authenticate "
+                "the runtime with `huggingface-cli login`."
+            ) from exc
+
+    @torch.inference_mode()
+    def cutout(self, name: str, image: Image.Image, threshold: float):
+        rgb = image.convert("RGB")
+        array = np.asarray(rgb, dtype=np.float32).copy() / 255.0
+        tensor = torch.from_numpy(array).permute(2, 0, 1).unsqueeze(0).to(self.device)
+        tensor = F.interpolate(
+            tensor, size=(self.input_size, self.input_size),
+            mode="bilinear", align_corners=False,
+        )
+        mean = torch.tensor((0.485, 0.456, 0.406), device=self.device)[None, :, None, None]
+        std = torch.tensor((0.229, 0.224, 0.225), device=self.device)[None, :, None, None]
+        prediction = self.model((tensor - mean) / std)[-1].sigmoid()[0, 0]
+        alpha_array = prediction.float().cpu().numpy()
+        alpha = Image.fromarray(np.uint8(np.clip(alpha_array, 0, 1) * 255)).resize(
+            rgb.size, Image.Resampling.LANCZOS
+        )
+        support = alpha.point(lambda value: 255 if value >= threshold else 0)
+        box = support.getbbox()
+        if box is None:
+            raise RuntimeError(f"RMBG-2.0 returned an empty alpha matte for {name}")
+        return Cutout(name, rgb.crop(box), alpha.crop(box), tuple(map(int, box)))
+
+    def close(self):
+        self.model.to("cpu")
+        del self.model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
+def generate_rmbg_cutouts(segmenter, references, args, out: Path):
+    directory = out / "cutouts"
+    directory.mkdir(parents=True, exist_ok=True)
+    cutouts = {}
+    for key, record in tqdm(references.items(), desc="RMBG-2.0 cutouts", unit="object"):
+        if record.get("status") != "ready":
+            continue
+        image = fit(Image.open(record["image"]), (args.width, args.height))
+        cutout = segmenter.cutout(record["name"], image, args.rmbg_crop_threshold)
+        cutout.rgb.save(directory / f"{key}_rgb.png")
+        cutout.alpha.save(directory / f"{key}_alpha.png")
+        rgba = cutout.rgb.copy()
+        rgba.putalpha(cutout.alpha)
+        rgba.save(directory / f"{key}_rgba.png")
+        cutouts[key] = cutout
+    return cutouts
+
+
+def object_condition(cutout: Cutout, args):
+    """Create O and its aligned foreground-token mask for the third input."""
+    canvas = Image.new("RGB", (args.width, args.height), args.object_condition_background)
+    alpha_canvas = Image.new("L", canvas.size)
+    available_w = round(args.width * args.object_condition_scale)
+    available_h = round(args.height * args.object_condition_scale)
+    scale = min(available_w / cutout.rgb.width, available_h / cutout.rgb.height)
+    size = (max(1, round(cutout.rgb.width * scale)), max(1, round(cutout.rgb.height * scale)))
+    rgb = cutout.rgb.resize(size, Image.Resampling.LANCZOS)
+    alpha = cutout.alpha.resize(size, Image.Resampling.LANCZOS)
+    position = ((args.width - size[0]) // 2, (args.height - size[1]) // 2)
+    canvas.paste(rgb, position, alpha)
+    alpha_canvas.paste(alpha, position)
+    return canvas, alpha_canvas
 
 
 def parse_layer_spec(spec: str, count: int) -> list[int]:
@@ -58,7 +136,7 @@ def parse_layer_spec(spec: str, count: int) -> list[int]:
 
 
 class SpatialRoutingProcessor:
-    """Qwen attention with output-query routing between B and C memories."""
+    """Qwen attention with role-specific B, C, and O memories."""
 
     def __init__(self, controller, original):
         self.controller = controller
@@ -85,14 +163,14 @@ class SpatialRoutingProcessor:
         seq_img = hidden_states.shape[1]
         output_tokens = (controller.args.height // 16) * (controller.args.width // 16)
         remainder = seq_img - output_tokens
-        if remainder <= 0 or remainder % 2:
+        if remainder <= 0 or remainder % 3:
             raise RuntimeError(
-                f"Unexpected [B,C] image-token layout: {seq_img} tokens; expected output + two equal conditions"
+                f"Unexpected [B,C,O] token layout: {seq_img}; expected output + three equal conditions"
             )
-        condition_tokens = remainder // 2
+        condition_tokens = remainder // 3
         if condition_tokens != output_tokens:
             raise RuntimeError(
-                "E5 currently requires square 1024-area B and C inputs matching the output token grid; "
+                "E5 requires square B, C, and O inputs matching the output token grid; "
                 f"got output={output_tokens}, condition={condition_tokens}."
             )
 
@@ -140,16 +218,20 @@ class SpatialRoutingProcessor:
             dropout_p=0.0, is_causal=False, backend=backend, parallel_config=parallel,
         )
 
-        # Shared context retains text and noisy-output self-attention. The only
-        # difference between branches is whether condition memory comes from B or C.
+        # Shared context retains text and noisy-output self-attention. Each
+        # branch then receives exactly one semantically assigned image memory.
         common_key = torch.cat([txt_key, img_key[:, :output_tokens]], dim=1)
         common_value = torch.cat([txt_value, img_value[:, :output_tokens]], dim=1)
         base_slice = slice(output_tokens, output_tokens + condition_tokens)
         collage_slice = slice(output_tokens + condition_tokens, output_tokens + 2 * condition_tokens)
+        object_slice = slice(output_tokens + 2 * condition_tokens, output_tokens + 3 * condition_tokens)
         base_key = torch.cat([common_key, img_key[:, base_slice]], dim=1)
         base_value = torch.cat([common_value, img_value[:, base_slice]], dim=1)
         collage_key = torch.cat([common_key, img_key[:, collage_slice]], dim=1)
         collage_value = torch.cat([common_value, img_value[:, collage_slice]], dim=1)
+        foreground = controller.object_foreground_indices(condition_tokens, img_key.device)
+        object_key = torch.cat([common_key, img_key[:, object_slice].index_select(1, foreground)], dim=1)
+        object_value = torch.cat([common_value, img_value[:, object_slice].index_select(1, foreground)], dim=1)
         branch_mask = None
         if encoder_hidden_states_mask is not None:
             branch_image_mask = torch.ones(
@@ -158,17 +240,44 @@ class SpatialRoutingProcessor:
             )
             branch_mask = torch.cat([encoder_hidden_states_mask, branch_image_mask], dim=1)[:, None, None, :]
         output_query = img_query[:, :output_tokens]
-        base_attention = dispatch_attention_fn(
-            output_query, base_key, base_value, attn_mask=branch_mask,
+        base_query = torch.cat([output_query, img_query[:, base_slice]], dim=1)
+        collage_query = torch.cat([output_query, img_query[:, collage_slice]], dim=1)
+        object_query = torch.cat([output_query, img_query[:, object_slice]], dim=1)
+        base_result = dispatch_attention_fn(
+            base_query, base_key, base_value, attn_mask=branch_mask,
             dropout_p=0.0, is_causal=False, backend=backend, parallel_config=parallel,
         )
-        collage_attention = dispatch_attention_fn(
-            output_query, collage_key, collage_value, attn_mask=branch_mask,
+        collage_result = dispatch_attention_fn(
+            collage_query, collage_key, collage_value, attn_mask=branch_mask,
             dropout_p=0.0, is_causal=False, backend=backend, parallel_config=parallel,
         )
+        object_image_mask = None
+        if encoder_hidden_states_mask is not None:
+            object_keys = output_tokens + int(foreground.numel())
+            object_image_mask = torch.ones(
+                (hidden_states.shape[0], object_keys), dtype=torch.bool, device=hidden_states.device
+            )
+            object_image_mask = torch.cat([encoder_hidden_states_mask, object_image_mask], dim=1)[:, None, None, :]
+        object_result = dispatch_attention_fn(
+            object_query, object_key, object_value, attn_mask=object_image_mask,
+            dropout_p=0.0, is_causal=False, backend=backend, parallel_config=parallel,
+        )
+        base_attention = base_result[:, :output_tokens]
+        collage_attention = collage_result[:, :output_tokens]
+        object_attention = object_result[:, :output_tokens]
         gate = controller.spatial_gate(output_tokens, joint.device, joint.dtype)
-        routed = base_attention * (1 - gate) + collage_attention * gate
+        inside = (
+            controller.args.collage_feature_weight * collage_attention
+            + controller.args.identity_feature_weight * object_attention
+        )
+        routed = base_attention * (1 - gate) + inside * gate
         joint[:, seq_txt:seq_txt + output_tokens] = routed
+        # Keep B, C, and O as distinct memories for the following layer. Without
+        # this, ordinary joint attention would contaminate B with C/O globally.
+        image_offset = seq_txt
+        joint[:, image_offset + base_slice.start:image_offset + base_slice.stop] = base_result[:, output_tokens:]
+        joint[:, image_offset + collage_slice.start:image_offset + collage_slice.stop] = collage_result[:, output_tokens:]
+        joint[:, image_offset + object_slice.start:image_offset + object_slice.stop] = object_result[:, output_tokens:]
 
         joint = joint.flatten(2, 3).to(joint_query.dtype)
         txt_output = joint[:, :seq_txt]
@@ -182,12 +291,13 @@ class SpatialRoutingProcessor:
             "output_tokens": output_tokens,
             "tokens_per_condition_image": condition_tokens,
             "sequence_tokens": seq_img,
+            "object_foreground_tokens": int(foreground.numel()),
         }
         return img_output, txt_output
 
 
 class SpatialBaseKVShare:
-    """Install and control query-dependent B/C attention routing."""
+    """Install and control query-dependent B/C/O attention routing."""
 
     def __init__(self, pipe, args):
         self.args = args
@@ -195,18 +305,27 @@ class SpatialBaseKVShare:
         self.layers = parse_layer_spec(args.kv_layers, len(self.blocks))
         self.originals = {}
         self.gate = None
+        self.object_alpha = None
+        self.gate_cache = {}
+        self.foreground_cache = {}
         self.active = False
         self.calls = 0
         self.layout = None
 
-    def set_gate(self, mask: Image.Image):
+    def set_gates(self, mask: Image.Image, object_alpha: Image.Image):
         gate = dilate(mask.convert("L"), self.args.kv_edit_dilation)
         if self.args.kv_gate_blur > 0:
             gate = gate.filter(ImageFilter.GaussianBlur(self.args.kv_gate_blur))
         self.gate = np.asarray(gate, dtype=np.float32).copy() / 255.0
+        self.object_alpha = np.asarray(object_alpha.convert("L"), dtype=np.float32).copy() / 255.0
+        self.gate_cache.clear()
+        self.foreground_cache.clear()
         return gate
 
     def spatial_gate(self, token_count, device, dtype):
+        cache_key = (token_count, str(device), dtype)
+        if cache_key in self.gate_cache:
+            return self.gate_cache[cache_key]
         height, width = self.gate.shape
         grid_width = max(1, round(math.sqrt(token_count * width / height)))
         grid_height = token_count // grid_width
@@ -216,7 +335,29 @@ class SpatialBaseKVShare:
             (grid_width, grid_height), Image.Resampling.BILINEAR
         )
         values = torch.from_numpy(np.asarray(gate, dtype=np.float32).copy().reshape(-1) / 255.0)
-        return values.to(device=device, dtype=dtype)[None, :, None, None]
+        result = values.to(device=device, dtype=dtype)[None, :, None, None]
+        self.gate_cache[cache_key] = result
+        return result
+
+    def object_foreground_indices(self, token_count, device):
+        cache_key = (token_count, str(device))
+        if cache_key in self.foreground_cache:
+            return self.foreground_cache[cache_key]
+        height, width = self.object_alpha.shape
+        grid_width = max(1, round(math.sqrt(token_count * width / height)))
+        grid_height = token_count // grid_width
+        if grid_height * grid_width != token_count:
+            raise RuntimeError(f"Cannot map {token_count} object tokens to the RMBG matte")
+        alpha = Image.fromarray(np.uint8(np.clip(self.object_alpha, 0, 1) * 255)).resize(
+            (grid_width, grid_height), Image.Resampling.BILINEAR
+        )
+        values = np.asarray(alpha, dtype=np.float32).copy().reshape(-1) / 255.0
+        indices = np.flatnonzero(values >= self.args.object_token_alpha_threshold)
+        if not len(indices):
+            raise RuntimeError("RMBG matte produced no foreground object tokens")
+        result = torch.as_tensor(indices, device=device, dtype=torch.long)
+        self.foreground_cache[cache_key] = result
+        return result
 
     def install(self):
         for index in self.layers:
@@ -225,8 +366,8 @@ class SpatialBaseKVShare:
             attention.set_processor(SpatialRoutingProcessor(self, attention.processor))
 
     def begin(self):
-        if self.gate is None:
-            raise RuntimeError("Set the SAM2-derived spatial gate before inference")
+        if self.gate is None or self.object_alpha is None:
+            raise RuntimeError("Set the RMBG-derived edit and object gates before inference")
         self.calls = 0
         self.layout = None
         self.active = True
@@ -238,7 +379,7 @@ class SpatialBaseKVShare:
         if self.calls != expected:
             raise RuntimeError(f"Spatial routing ran {self.calls} times; expected {expected}")
         return {
-            "mechanism": "query-dependent base/collage attention routing",
+            "mechanism": "query-dependent base/collage/object attention routing",
             "layers": self.layers,
             "processor_calls": self.calls,
             "token_layout": self.layout,
@@ -273,7 +414,7 @@ def run_case(pipe, kv_share, case, references, cutouts, args, out: Path):
     for index, item in enumerate(tqdm(objects, desc=f"E5 case {case_id:03d}", unit="object", leave=False), 1):
         name = item["name"]
         key = reference_key(item)
-        final_path = steps_dir / f"{index:02d}_{slug(name)}_final.png"
+        final_path = steps_dir / f"{index:02d}_{slug(name)}_bco_final.png"
         mask_path = steps_dir / f"{index:02d}_{slug(name)}_paste_mask.png"
         if args.resume and final_path.is_file() and mask_path.is_file():
             current = Image.open(final_path).convert("RGB")
@@ -296,21 +437,25 @@ def run_case(pipe, kv_share, case, references, cutouts, args, out: Path):
         )
         object_canvas, paste_mask, placed_box = place_cutout(cutouts[key], box, before.size, args.object_scale)
         collage = composite(before, object_canvas, paste_mask)
+        object_image, object_alpha = object_condition(cutouts[key], args)
         collage.save(steps_dir / f"{index:02d}_{slug(name)}_collage_input.png")
+        object_image.save(steps_dir / f"{index:02d}_{slug(name)}_object_input.png")
+        object_alpha.save(steps_dir / f"{index:02d}_{slug(name)}_object_alpha.png")
         paste_mask.save(mask_path)
-        kv_gate = kv_share.set_gate(paste_mask)
+        kv_gate = kv_share.set_gates(paste_mask, object_alpha)
         kv_gate.save(steps_dir / f"{index:02d}_{slug(name)}_kv_edit_gate.png")
 
         prompt = (
             f"Image 1 is the unchanged base scene. Image 2 is the same scene with one pasted {name}. "
-            f"Return one edited scene: preserve Image 1 everywhere except the pasted-object region from Image 2. "
-            f"In that region, harmonize the Image 2 {name} naturally while preserving its exact identity, structure, "
-            "colors, material, pose, position and scale. Do not output either input image as a reference panel."
+            f"Image 3 is the isolated exact {name} identity. Return one edited scene: preserve Image 1 outside the "
+            f"pasted region, use Image 2 for the {name}'s position and scene geometry, and use Image 3 for its exact "
+            "identity, structure, colors and material. Harmonize lighting and contact without moving or redesigning "
+            "the object. Do not output an isolated object, reference panel, border, collage, or split image."
         )
         kv_share.begin()
         try:
             # This is the only generative edit pass for the insertion.
-            current = infer(pipe, [before, collage], prompt, args, args.seed + case_id * 10000 + index * 100)
+            current = infer(pipe, [before, collage, object_image], prompt, args, args.seed + case_id * 10000 + index * 100)
         finally:
             kv_share.active = False
         intervention = kv_share.end()
@@ -322,6 +467,7 @@ def run_case(pipe, kv_share, case, references, cutouts, args, out: Path):
             "status": "generated",
             "base_input": str(steps_dir / f"{index:02d}_{slug(name)}_base_input.png"),
             "collage_input": str(steps_dir / f"{index:02d}_{slug(name)}_collage_input.png"),
+            "object_input": str(steps_dir / f"{index:02d}_{slug(name)}_object_input.png"),
             "final": str(final_path),
             "placed_box": list(placed_box),
             "probe": probe,
@@ -355,10 +501,10 @@ def parse_args():
     parser.add_argument("--object_seed", type=int, default=1337)
     parser.add_argument("--true_cfg_scale", type=float, default=1.0)
     parser.add_argument("--negative_prompt", default=" ")
-    parser.add_argument("--mask_backend", choices=("sam2",), default="sam2", help="SAM2 is used only for clean reference cutouts")
-    parser.add_argument("--sam_model_id", default="facebook/sam2-hiera-small")
-    parser.add_argument("--sam_device", default="cpu")
-    parser.add_argument("--background_threshold", type=float, default=24)
+    parser.add_argument("--rmbg_model_id", default="briaai/RMBG-2.0")
+    parser.add_argument("--rmbg_device", default="cuda")
+    parser.add_argument("--rmbg_input_size", type=int, default=1024)
+    parser.add_argument("--rmbg_crop_threshold", type=int, default=8, help="Alpha threshold used only to find the tight crop")
     parser.add_argument("--probe_steps", type=int, default=4)
     parser.add_argument("--probe_quantile", type=float, default=.88)
     parser.add_argument("--probe_blur", type=float, default=1.2)
@@ -367,14 +513,23 @@ def parse_args():
     parser.add_argument("--default_object_height", type=float, default=.25)
     parser.add_argument("--object_height_priors")
     parser.add_argument("--object_scale", type=float, default=.92)
-    parser.add_argument("--kv_layers", default="20-49", help="Layers using spatial B/C attention routing")
+    parser.add_argument("--kv_layers", default="all", help="Layers using spatial B/C/O attention routing; all keeps B uncontaminated")
     parser.add_argument("--kv_edit_dilation", type=int, default=24, help="Pixels around pasted object allowed to use collage K/V")
     parser.add_argument("--kv_gate_blur", type=float, default=3.0)
+    parser.add_argument("--collage_feature_weight", type=float, default=.45)
+    parser.add_argument("--identity_feature_weight", type=float, default=.55)
+    parser.add_argument("--object_token_alpha_threshold", type=float, default=.05)
+    parser.add_argument("--object_condition_scale", type=float, default=.82)
+    parser.add_argument("--object_condition_background", type=int, default=127)
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    if not math.isclose(args.collage_feature_weight + args.identity_feature_weight, 1.0, abs_tol=1e-6):
+        raise ValueError("collage_feature_weight + identity_feature_weight must equal 1")
+    if not 0 <= args.object_token_alpha_threshold <= 1:
+        raise ValueError("object_token_alpha_threshold must be in [0, 1]")
     try:
         import diffusers
         if diffusers.__version__ != "0.40.0":
@@ -387,10 +542,13 @@ def main():
     cases = select_cases(load_suite(prompt_file), args.case_ids)
     save_json(vars(args), out / "config.json")
 
-    segmenter, mask_backend = load_segmenter(args)
     pipe = load_pipe(args)
     references = generate_references(pipe, cases, args, out, prompt_file)
-    cutouts = generate_cutouts(segmenter, references, args, out)
+    segmenter = RMBG2Cutout(args.rmbg_model_id, args.rmbg_device, args.rmbg_input_size)
+    try:
+        cutouts = generate_rmbg_cutouts(segmenter, references, args, out)
+    finally:
+        segmenter.close()
     kv_share = SpatialBaseKVShare(pipe, args)
     kv_share.install()
     summary = []
@@ -400,7 +558,7 @@ def main():
             save_json(summary, out / "summary.json")
     finally:
         kv_share.close()
-    save_json({"mask_backend": mask_backend, "cases": summary}, out / "summary.json")
+    save_json({"cutout_backend": args.rmbg_model_id, "image_roles": ["base", "collage", "object"], "cases": summary}, out / "summary.json")
     print(f"Done: {out}")
 
 
