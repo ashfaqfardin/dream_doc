@@ -421,6 +421,7 @@ def parse_args():
     p.add_argument("--occupancy_margin", type=int, default=24)
     p.add_argument("--default_object_height", type=float, default=.25)
     p.add_argument("--object_height_priors")
+    p.add_argument("--object_scale", type=float, default=.92, help="Scale the reference inside the proposed placement box")
     p.add_argument("--injection_layers", default="6-35")
     p.add_argument("--object_attention_mass", type=float, default=.35, help="Desired O-to-main attention mass ratio inside the placement region")
     p.add_argument("--gate_threshold", type=int, default=96)
