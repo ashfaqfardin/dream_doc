@@ -62,6 +62,7 @@ EXPERIMENTS = [
     {"id":"e5","name":"One-Pass Collage-Primary Residual Feature Routing with RMBG-2.0","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
     {"id":"e6","name":"Block-Sparse Source-Aware Reference Attention","script":HERE/"e6_block_sparse_reference_attention.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e6_block_sparse_attention")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
     {"id":"e7","name":"Paper-Aligned Single-Collage Local Harmonization","script":HERE/"e7_paper_aligned_collage_harmonization.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e7_paper_aligned_harmonization")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
+    {"id":"e8","name":"Training-Free Masked Object-Attention Insertion","script":HERE/"e8_masked_object_attention_insertion.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e8_masked_object_attention")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -94,6 +95,10 @@ def parse_args():
     parser.add_argument("--e7_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E7")
     parser.add_argument("--e7_max_objects", type=int, help="Limit objects per E7 case")
     parser.add_argument("--e7_inpaint_strength", type=float, default=1.0, help="Native Qwen local inpainting strength")
+    parser.add_argument("--e8_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E8")
+    parser.add_argument("--e8_max_objects", type=int, help="Limit objects per E8 case")
+    parser.add_argument("--e8_injection_layers", default="middle", help="E8 object-attention layers")
+    parser.add_argument("--e8_object_prior", type=float, default=.25, help="E8 object attention prior")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -239,6 +244,15 @@ def main():
                 command.extend(["--case_ids", *map(str, args.e7_case_ids)])
             if args.e7_max_objects is not None:
                 command.extend(["--max_objects", str(args.e7_max_objects)])
+        if experiment["id"] == "e8":
+            command.extend([
+                "--injection_layers", args.e8_injection_layers,
+                "--object_attention_prior", str(args.e8_object_prior),
+            ])
+            if args.e8_case_ids:
+                command.extend(["--case_ids", *map(str, args.e8_case_ids)])
+            if args.e8_max_objects is not None:
+                command.extend(["--max_objects", str(args.e8_max_objects)])
         started = time.perf_counter()
         result = subprocess.run(command, cwd=str(ROOT), env=os.environ.copy())
         elapsed = format_duration(time.perf_counter() - started)
