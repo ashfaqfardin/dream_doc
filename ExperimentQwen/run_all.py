@@ -59,6 +59,7 @@ EXPERIMENTS = [
         "requires": [HERE / "e3_prompts.json", HERE / "object_canny"],
     },
     {"id":"e4","name":"3D Feature Trajectory and Reference-Attention Lab","script":HERE/"e4_3d_feature_trajectory_lab.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e4_3d_lab")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
+    {"id":"e5","name":"One-Pass Collage with Spatial Base K/V Sharing","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e3_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e3_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -74,8 +75,13 @@ def parse_args():
     parser.add_argument("--e4_case_id", type=int, default=1, help="E3 prompt-suite case analyzed by E4")
     parser.add_argument("--e4_object_index", type=int, default=1, help="One-based object index within the selected E4 case")
     parser.add_argument("--e4_all_prompts", action="store_true", help="Run E4 for every object in every e3_prompts.json case")
+    parser.add_argument("--e4_max_cases", type=int, help="Limit E4 all-prompts mode to the first N cases")
+    parser.add_argument("--e4_max_objects", type=int, help="Limit E4 all-prompts mode to the first N objects per case")
     parser.add_argument("--e4_tokens_per_snapshot", type=int, default=128, help="Spatial tokens retained per E4 layer/step snapshot")
     parser.add_argument("--e4_skip_depth", action="store_true", help="Use image-y as E4's depth proxy instead of loading Depth Anything")
+    parser.add_argument("--e5_case_ids", type=int, nargs="+", help="Subset of E3 prompt-suite cases for E5")
+    parser.add_argument("--e5_max_objects", type=int, help="Limit objects per E5 case for a smoke test")
+    parser.add_argument("--e5_kv_layers", default="all", help="E5 K/V intervention layers, e.g. 20-49 or all")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -187,10 +193,20 @@ def main():
             command.extend(["--tokens_per_snapshot", str(args.e4_tokens_per_snapshot)])
             if args.e4_all_prompts:
                 command.append("--all_prompts")
+                if args.e4_max_cases is not None:
+                    command.extend(["--max_cases", str(args.e4_max_cases)])
+                if args.e4_max_objects is not None:
+                    command.extend(["--max_objects", str(args.e4_max_objects)])
             else:
                 command.extend(["--case_id", str(args.e4_case_id), "--object_index", str(args.e4_object_index)])
             if args.e4_skip_depth:
                 command.append("--skip_depth")
+        if experiment["id"] == "e5":
+            command.extend(["--kv_layers", args.e5_kv_layers])
+            if args.e5_case_ids:
+                command.extend(["--case_ids", *map(str, args.e5_case_ids)])
+            if args.e5_max_objects is not None:
+                command.extend(["--max_objects", str(args.e5_max_objects)])
         started = time.perf_counter()
         result = subprocess.run(command, cwd=str(ROOT), env=os.environ.copy())
         elapsed = format_duration(time.perf_counter() - started)

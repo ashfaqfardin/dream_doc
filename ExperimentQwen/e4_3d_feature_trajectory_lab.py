@@ -59,9 +59,18 @@ class ActivationRecorder:
   for h in self.handles:h.remove()
 
 class QKAffinityRecorder:
- """Pre-RoPE affinity from replacement output queries to Image-2 keys."""
+ """Post-normalization, post-RoPE output-to-condition routing probe.
+
+ Mass is normalized over scene and reference image keys only. It is a
+ scene-vs-reference routing diagnostic, not the model's full joint attention
+ denominator (which additionally contains text and noisy-output keys).
+ """
  def __init__(self,pipe,args):
-  self.args=args;self.layers=set(args.layers);self.blocks=list(pipe.transformer.transformer_blocks);self.output_tokens=np.prod(grid_shape(args));self.pending={};self.calls={};self.records=[];self.handles=[];self.enabled=False
+  self.args=args;self.layers=set(args.layers);self.blocks=list(pipe.transformer.transformer_blocks);self.output_tokens=int(np.prod(grid_shape(args)));self.pending={};self.context={};self.calls={};self.records=[];self.handles=[];self.enabled=False
+ def pre_hook(self,layer):
+  def hook(_m,_a,kwargs):
+   if self.enabled:self.context[layer]=kwargs.get('image_rotary_emb')
+  return hook
  def q_hook(self,layer):
   def hook(_m,_a,out):
    if self.enabled:self.pending[layer]=out.detach()
@@ -70,26 +79,36 @@ class QKAffinityRecorder:
  def k_hook(self,layer):
   def hook(_m,_a,out):
    if not self.enabled or layer not in self.pending:return out
-   q=self.pending.pop(layer);k=out;step=self.calls.get(layer,0);self.calls[layer]=step+1;n=int(self.output_tokens)
+   q=self.pending.pop(layer);k=out;step=self.calls.get(layer,0);self.calls[layer]=step+1;n=self.output_tokens
    if q.ndim!=3 or k.ndim!=3 or q.shape[1]<n or k.shape[1]<3*n:return out
-   qidx=torch.linspace(0,n-1,min(self.args.affinity_queries,n),device=q.device).long();kidx=torch.linspace(2*n,3*n-1,min(self.args.affinity_keys,n),device=k.device).long()
-   qs=F.normalize(q[0].index_select(0,qidx).float(),dim=-1);ks=F.normalize(k[0].index_select(0,kidx).float(),dim=-1);logits=qs@ks.T/math.sqrt(qs.shape[-1]);weights=logits.softmax(-1)
-   self.records.append({'layer':layer,'step':step,'mean_max_affinity':float(weights.max(-1).values.mean()),'entropy':float((-(weights*weights.clamp_min(1e-8).log()).sum(-1)).mean()),'query_indices':qidx.cpu().numpy(),'max_affinity':weights.max(-1).values.cpu().numpy()})
+   attn=self.blocks[layer].attn;head_dim=attn.inner_dim//attn.heads;q=q.unflatten(-1,(-1,head_dim));k=k.unflatten(-1,(-1,head_dim))
+   if attn.norm_q is not None:q=attn.norm_q(q)
+   if attn.norm_k is not None:k=attn.norm_k(k)
+   rope=self.context.get(layer)
+   if rope is not None:
+    from diffusers.models.transformers.transformer_qwenimage import ROPE_PER_DEVICE
+    apply_rope=ROPE_PER_DEVICE.get(q.device.type,ROPE_PER_DEVICE['cuda']);q=apply_rope(q,rope[0]);k=apply_rope(k,rope[0])
+   qidx=torch.linspace(0,n-1,min(self.args.affinity_queries,n),device=q.device).round().long();qs=q[0].index_select(0,qidx);scene=k[0,n:2*n];reference=k[0,2*n:3*n]
+   scene_logits=torch.einsum('qhd,khd->hqk',qs.float(),scene.float())/math.sqrt(head_dim);ref_logits=torch.einsum('qhd,khd->hqk',qs.float(),reference.float())/math.sqrt(head_dim);joint=torch.cat([scene_logits,ref_logits],dim=-1).softmax(-1);scene_mass=joint[...,:n].sum(-1).mean(0);reference_mass=joint[...,n:].sum(-1).mean(0);ratio=reference_mass/(scene_mass+reference_mass+1e-8)
+   self.records.append({'layer':layer,'step':step,'query_indices':qidx.cpu().numpy(),'scene_mass':scene_mass.detach().cpu().numpy(),'reference_mass':reference_mass.detach().cpu().numpy(),'reference_ratio':ratio.detach().cpu().numpy(),'mean_scene_mass':float(scene_mass.mean()),'mean_reference_mass':float(reference_mass.mean()),'mean_reference_ratio':float(ratio.mean())})
    return out
   return hook
  def install(self):
   for layer in sorted(self.layers):
    if layer>=len(self.blocks):continue
    attn=getattr(self.blocks[layer],'attn',None)
-   if attn is not None:self.handles.extend([attn.to_q.register_forward_hook(self.q_hook(layer)),attn.to_k.register_forward_hook(self.k_hook(layer))])
- def begin(self):self.enabled=True;self.pending={};self.calls={}
- def end(self):self.enabled=False;self.pending={}
+   if attn is not None:self.handles.extend([attn.register_forward_pre_hook(self.pre_hook(layer),with_kwargs=True),attn.to_q.register_forward_hook(self.q_hook(layer)),attn.to_k.register_forward_hook(self.k_hook(layer))])
+ def begin(self):self.enabled=True;self.pending={};self.context={};self.calls={}
+ def end(self):self.enabled=False;self.pending={};self.context={}
  def close(self):
   for h in self.handles:h.remove()
 
 def randomized_pca(records,projection_dim,seed):
  if not records:raise RuntimeError('No transformer activations were captured; cannot compute PCA.')
- raw=np.concatenate([r['features'].astype(np.float32,copy=False) for r in records]);nonfinite=int((~np.isfinite(raw)).sum());features=np.nan_to_num(raw,nan=0.0,posinf=0.0,neginf=0.0)
+ normalized=[];nonfinite=0
+ for r in records:
+  x=r['features'].astype(np.float32,copy=False);nonfinite+=int((~np.isfinite(x)).sum());x=np.nan_to_num(x,nan=0.0,posinf=0.0,neginf=0.0);x=x-x.mean(0,keepdims=True);x=x/(np.sqrt(np.mean(x*x))+1e-8);normalized.append(x)
+ features=np.concatenate(normalized)
  # Normalize only the numerical scale, jointly across all trajectories. This
  # preserves their relative geometry while preventing projection overflow.
  finite_abs=np.abs(features);scale=float(np.quantile(finite_abs,.999)) if finite_abs.size else 1.0
@@ -141,8 +160,8 @@ def write_trajectory_plot(records,path):
 
 def write_affinity_surface(records,path):
  go=plotly_module();layers=sorted({r['layer'] for r in records});steps=sorted({r['step'] for r in records});z=np.full((len(steps),len(layers)),np.nan)
- for r in records:z[steps.index(r['step']),layers.index(r['layer'])]=r['mean_max_affinity']
- fig=go.Figure(data=[go.Surface(x=layers,y=steps,z=z)]);fig.update_layout(title='Pre-RoPE output-query → reference-key affinity',scene={'xaxis_title':'Layer','yaxis_title':'Step','zaxis_title':'Mean max affinity'});fig.write_html(path,include_plotlyjs='cdn')
+ for r in records:z[steps.index(r['step']),layers.index(r['layer'])]=r['mean_reference_ratio']
+ fig=go.Figure(data=[go.Surface(x=layers,y=steps,z=z,cmin=0,cmax=1)]);fig.update_layout(title='Post-RoPE conditional-image routing',scene={'xaxis_title':'Layer','yaxis_title':'Step','zaxis_title':'Reference / (scene + reference)'});fig.write_html(path,include_plotlyjs='cdn')
 
 def save_identity_heatmaps(records,image,out,args):
  gh,gw=grid_shape(args);out.mkdir(parents=True,exist_ok=True)
@@ -150,6 +169,14 @@ def save_identity_heatmaps(records,image,out,args):
   if 'identity_similarity' not in r:continue
   grid=np.full(gh*gw,np.nan,np.float32);grid[r['indices']]=r['identity_similarity'];valid=np.isfinite(grid);fill=float(np.nanmedian(grid)) if valid.any() else 0;grid=np.nan_to_num(grid,nan=fill).reshape(gh,gw);lo,hi=np.quantile(grid,[.05,.95]);norm=np.clip((grid-lo)/(hi-lo+1e-8),0,1)
   color=np.zeros((gh,gw,3),np.uint8);color[...,0]=np.uint8(norm*255);color[...,2]=np.uint8((1-norm)*255);heat=Image.fromarray(color).resize(image.size,Image.Resampling.BILINEAR);Image.blend(image,heat,.45).save(out/f'{r["trajectory"]}_L{r["layer"]:02d}_T{r["step"]:02d}.png')
+
+def save_routing_heatmaps(records,image,out,args):
+ gh,gw=grid_shape(args);out.mkdir(parents=True,exist_ok=True)
+ for r in records:
+  grid=np.full(gh*gw,np.nan,np.float32);grid[r['query_indices']]=r['reference_ratio'];known=np.flatnonzero(np.isfinite(grid));missing=np.flatnonzero(~np.isfinite(grid))
+  if missing.size and known.size:
+   ky,kx=np.divmod(known,gw);my,mx=np.divmod(missing,gw);nearest=((my[:,None]-ky[None,:])**2+(mx[:,None]-kx[None,:])**2).argmin(1);grid[missing]=grid[known[nearest]]
+  grid=np.nan_to_num(grid,nan=.5).reshape(gh,gw);color=np.zeros((gh,gw,3),np.uint8);color[...,0]=np.uint8(np.clip(grid,0,1)*255);color[...,2]=np.uint8(np.clip(1-grid,0,1)*255);heat=Image.fromarray(color).resize(image.size,Image.Resampling.BILINEAR);Image.blend(image,heat,.45).save(out/f'routing_L{r["layer"]:02d}_T{r["step"]:02d}.png')
 
 def depth_map(image,args,estimator=None):
  if args.skip_depth:return np.tile(np.linspace(0,1,image.height)[:,None],(1,image.width))
@@ -167,11 +194,19 @@ def write_physical_plot(image,depth,record,path,args):
 def parser():
  p=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter);p.add_argument('--prompts',default=str(HERE/'e3_prompts.json'));p.add_argument('--out_dir',default='results/qwen_e4_3d_lab');p.add_argument('--case_id',type=int,default=1);p.add_argument('--object_index',type=int,default=1)
  p.add_argument('--all_prompts',action='store_true',help='Analyze every object in every prompt-suite case')
- p.add_argument('--model_id',default='Qwen/Qwen-Image-Edit-2509');p.add_argument('--lightning_repo',default='lightx2v/Qwen-Image-Lightning');p.add_argument('--lightning_weight',default='Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors');p.add_argument('--lora_scale',type=float,default=1);p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--object_seed',type=int,default=1337);p.add_argument('--true_cfg_scale',type=float,default=1);p.add_argument('--negative_prompt',default=' ');p.add_argument('--resume',action=argparse.BooleanOptionalAction,default=True);p.add_argument('--missing_policy',choices=('skip','error'),default='error');p.add_argument('--max_objects',type=int)
- p.add_argument('--layers',type=int,nargs='+',default=[10,20,30,40,50,59]);p.add_argument('--tokens_per_snapshot',type=int,default=128);p.add_argument('--projection_dim',type=int,default=64);p.add_argument('--affinity_queries',type=int,default=128);p.add_argument('--affinity_keys',type=int,default=128);p.add_argument('--depth_model',default='depth-anything/Depth-Anything-V2-Small-hf');p.add_argument('--skip_depth',action='store_true');return p.parse_args()
+ p.add_argument('--model_id',default='Qwen/Qwen-Image-Edit-2509');p.add_argument('--lightning_repo',default='lightx2v/Qwen-Image-Lightning');p.add_argument('--lightning_weight',default='Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors');p.add_argument('--lora_scale',type=float,default=1);p.add_argument('--device',default='cuda');p.add_argument('--width',type=int,default=1024);p.add_argument('--height',type=int,default=1024);p.add_argument('--steps',type=int,default=8);p.add_argument('--seed',type=int,default=42);p.add_argument('--object_seed',type=int,default=1337);p.add_argument('--true_cfg_scale',type=float,default=1);p.add_argument('--negative_prompt',default=' ');p.add_argument('--resume',action=argparse.BooleanOptionalAction,default=True);p.add_argument('--missing_policy',choices=('skip','error'),default='error');p.add_argument('--max_cases',type=int);p.add_argument('--max_objects',type=int)
+ p.add_argument('--layers',type=int,nargs='+',default=[10,20,30,40,50]);p.add_argument('--tokens_per_snapshot',type=int,default=128);p.add_argument('--projection_dim',type=int,default=64);p.add_argument('--affinity_queries',type=int,default=256);p.add_argument('--affinity_keys',type=int,default=128,help='Deprecated; corrected routing uses every scene/reference key');p.add_argument('--depth_model',default='depth-anything/Depth-Anything-V2-Small-hf');p.add_argument('--skip_depth',action='store_true');return p.parse_args()
 
 def safe_slug(value):
  return ''.join(c if c.isalnum() else '_' for c in str(value).lower()).strip('_') or 'object'
+
+def image_role_scores(scene,reference,replacement):
+ def vector(image):
+  return np.asarray(image.resize((256,256),Image.Resampling.BILINEAR),np.float32).reshape(-1)/255
+ s,r,o=vector(scene),vector(reference),vector(replacement)
+ def compare(a,b):
+  return {'rmse':float(np.sqrt(np.mean((a-b)**2))),'cosine':float((a@b)/(np.linalg.norm(a)*np.linalg.norm(b)+1e-8))}
+ return {'replacement_to_scene':compare(o,s),'replacement_to_reference':compare(o,r),'interpretation':'Lower RMSE and higher cosine indicate greater global resemblance; this is a collapse diagnostic, not an object-identity metric.'}
 
 def analyze_object(pipe,base,depth,case,item,reference,args,out,seed):
  """Run the four matched trajectories for one object against a fixed base."""
@@ -188,8 +223,9 @@ def analyze_object(pipe,base,depth,case,item,reference,args,out,seed):
   recorder.begin('reference','condition');call(pipe,reference,matched,args,seed+1000,'latent')
   recorder.begin('replacement','output');affinity.begin();replacement=first_image(call(pipe,[generic,reference],replacement_prompt,args,seed+1000,'pil'));affinity.end()
  finally:recorder.close();affinity.close()
- generic.save(out/'generic.png');replacement.save(out/'replacement.png');pca=randomized_pca(recorder.records,args.projection_dim,seed);identity=identity_metrics(recorder.records);write_feature_plot(recorder.records,out/'feature_pca_3d.html');write_trajectory_plot(recorder.records,out/'token_trajectories_3d.html');write_affinity_surface(affinity.records,out/'reference_affinity_surface.html');save_identity_heatmaps(recorder.records,replacement,out/'identity_heatmaps',args);physical=next(r for r in recorder.records if r['trajectory']=='generic');write_physical_plot(base,depth,physical,out/'physical_scene_3d.html',args)
- compact=[{'trajectory':r['trajectory'],'layer':r['layer'],'step':r['step'],'segment':r['segment']} for r in recorder.records];metrics={'case_id':int(case['id']),'object':item['name'],'pca':pca,'identity_similarity':identity,'qk_affinity':[{k:v for k,v in r.items() if k not in {'query_indices','max_affinity'}} for r in affinity.records],'captures':compact};save_json(metrics,out/'metrics.json')
+ if not affinity.records:raise RuntimeError('No scene/reference routing records were captured. Verify Diffusers 0.40.0 and square 1024x1024 condition-image token packing.')
+ generic.save(out/'generic.png');replacement.save(out/'replacement.png');pca=randomized_pca(recorder.records,args.projection_dim,seed);identity=identity_metrics(recorder.records);write_feature_plot(recorder.records,out/'feature_pca_3d.html');write_trajectory_plot(recorder.records,out/'token_trajectories_3d.html');write_affinity_surface(affinity.records,out/'reference_affinity_surface.html');save_identity_heatmaps([r for r in recorder.records if r['trajectory']=='generic'],generic,out/'identity_heatmaps'/'generic',args);save_identity_heatmaps([r for r in recorder.records if r['trajectory']=='replacement'],replacement,out/'identity_heatmaps'/'replacement',args);save_routing_heatmaps(affinity.records,replacement,out/'routing_heatmaps',args);physical=next(r for r in recorder.records if r['trajectory']=='generic');write_physical_plot(base,depth,physical,out/'physical_scene_3d.html',args)
+ compact=[{'trajectory':r['trajectory'],'layer':r['layer'],'step':r['step'],'segment':r['segment']} for r in recorder.records];routing=[{k:v for k,v in r.items() if k not in {'query_indices','scene_mass','reference_mass','reference_ratio'}} for r in affinity.records];metrics={'schema_version':2,'case_id':int(case['id']),'object':item['name'],'pca':pca,'identity_similarity':identity,'conditional_image_routing':routing,'routing_definition':'Post-QK-normalization and post-RoPE attention, normalized over scene and reference image keys only.','image_role_scores':image_role_scores(base,reference,replacement),'captures':compact};save_json(metrics,out/'metrics.json')
  archive={}
  for r in recorder.records:
   key=f'{r["trajectory"]}_L{r["layer"]}_T{r["step"]}';archive[key+'_features']=r['features'];archive[key+'_pca_xyz']=r['xyz'];archive[key+'_token_indices']=r['indices']
@@ -200,7 +236,9 @@ def main():
  args=parser();
  if diffusers.__version__!='0.40.0':warnings.warn(f'E4 Lab targets diffusers 0.40.0; found {diffusers.__version__}')
  out=Path(args.out_dir);out.mkdir(parents=True,exist_ok=True);pf=Path(args.prompts).resolve();all_cases=e3.load_suite(pf)
- if args.all_prompts:cases=all_cases
+ if args.all_prompts:
+  cases=all_cases[:args.max_cases] if args.max_cases else all_cases
+  if args.max_objects:cases=[{**case,'objects':case['objects'][:args.max_objects]} for case in cases]
  else:
   case=next((c for c in all_cases if int(c['id'])==args.case_id),None)
   if case is None:raise ValueError(f'Unknown case id {args.case_id}')
@@ -220,7 +258,11 @@ def main():
   depth=depth_map(base,args,depth_estimator)
   for object_index,item in enumerate(case['objects'],1):
    object_out=case_out/f'object_{object_index:02d}_{safe_slug(item["name"])}';metrics_path=object_out/'metrics.json'
+   valid_resume=False
    if args.resume and metrics_path.is_file() and (object_out/'replacement.png').is_file():
+    try:valid_resume=json.loads(metrics_path.read_text(encoding='utf-8')).get('schema_version',0)>=2
+    except (OSError,json.JSONDecodeError):valid_resume=False
+   if valid_resume:
     summary.append({'case_id':int(case['id']),'object':item['name'],'output':str(object_out),'status':'resumed'});progress.update();continue
    record=refs[e3.reference_key(item)]
    if record.get('status')!='ready':
