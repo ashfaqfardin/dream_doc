@@ -11,6 +11,7 @@ There is one Qwen harmonization pass per object and no custom attention/KV code.
 from __future__ import annotations
 
 import argparse
+import gc
 import math
 import warnings
 from pathlib import Path
@@ -257,11 +258,23 @@ def main():
     save_json(vars(args), out / "config.json")
 
     # Planner performs base/reference generation and counterfactual placement.
-    # from_pipe reuses those exact loaded components; it does not load another
-    # transformer, VAE, or text encoder.
     planner = load_pipe(args)
     references = generate_references(planner, cases, args, out, prompt_file)
-    editor = QwenImageEditInpaintPipeline.from_pipe(planner)
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    # Do not use `from_pipe` here. Diffusers 0.40 calls `.to(dtype)` inside that
+    # conversion, which recasts the already GPU-resident 20B transformer and can
+    # momentarily duplicate parameters even though components are shared. A
+    # direct wrapper construction performs no allocation, transfer, or cast.
+    editor = QwenImageEditInpaintPipeline(
+        scheduler=planner.scheduler,
+        vae=planner.vae,
+        text_encoder=planner.text_encoder,
+        tokenizer=planner.tokenizer,
+        processor=planner.processor,
+        transformer=planner.transformer,
+    )
     editor.set_progress_bar_config(disable=False)
 
     segmenter = RMBG2Cutout(

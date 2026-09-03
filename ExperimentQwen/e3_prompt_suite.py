@@ -73,6 +73,11 @@ def reference_key(item: dict) -> str:
 def generate_references(pipe, cases, args, out: Path, prompt_file: Path):
     reference_dir = out / "references"
     reference_dir.mkdir(parents=True, exist_ok=True)
+    # Repository-provided photographs are authoritative when present. All
+    # later experiments share this loader, so E3-E7 avoid regenerating the same
+    # references from Canny inputs on every new output directory.
+    provided_dir = HERE / "references"
+    provided_extensions = (".png", ".jpg", ".jpeg", ".webp")
     unique = {}
     for case in cases:
         for item in case["objects"][: args.max_objects or None]:
@@ -80,8 +85,28 @@ def generate_references(pipe, cases, args, out: Path, prompt_file: Path):
 
     records = {}
     missing = []
-    for key, item in tqdm(unique.items(), desc="E3 reference objects", unit="object"):
+    reused = generated = 0
+    for key, item in tqdm(unique.items(), desc="Resolving reference objects", unit="object"):
         target = reference_dir / f"{key}.png"
+        provided = None
+        if provided_dir.is_dir():
+            provided = next(
+                (provided_dir / f"{key}{extension}" for extension in provided_extensions
+                 if (provided_dir / f"{key}{extension}").is_file()),
+                None,
+            )
+        if provided is not None:
+            records[key] = {
+                "name": item["name"],
+                "status": "ready",
+                "image": str(provided.resolve()),
+                "source": "provided_reference",
+                "canny_file": item.get("canny_file"),
+                "seed": None,
+            }
+            reused += 1
+            continue
+
         source = resolve_input(item.get("canny_file"), prompt_file)
         if source is None:
             record = {"name": item["name"], "status": "missing", "canny_file": item.get("canny_file")}
@@ -99,10 +124,16 @@ def generate_references(pipe, cases, args, out: Path, prompt_file: Path):
                 "Do not add scenery, floor, labels, borders, text or other objects."
             )
             infer(pipe, [control], prompt, args, args.object_seed).save(target)
+            generated += 1
         records[key] = {
             "name": item["name"], "status": "ready", "canny_file": str(source),
             "image": str(target), "seed": args.object_seed,
+            "source": "generated_from_canny",
         }
+    print(
+        f"Reference sources: {reused} provided, {generated} newly generated, "
+        f"{len(unique) - reused - generated - len(missing)} cached generated, {len(missing)} missing"
+    )
     save_json(records, out / "references.json")
     save_json(missing, out / "missing_inputs.json")
     return records
