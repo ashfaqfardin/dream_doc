@@ -81,7 +81,7 @@ def parse_args():
     parser.add_argument("--e4_skip_depth", action="store_true", help="Use image-y as E4's depth proxy instead of loading Depth Anything")
     parser.add_argument("--e5_case_ids", type=int, nargs="+", help="Subset of E3 prompt-suite cases for E5")
     parser.add_argument("--e5_max_objects", type=int, help="Limit objects per E5 case for a smoke test")
-    parser.add_argument("--e5_kv_layers", default="all", help="E5 K/V intervention layers, e.g. 20-49 or all")
+    parser.add_argument("--e5_kv_layers", default="20-49", help="E5 spatial B/C attention-routing layers")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",

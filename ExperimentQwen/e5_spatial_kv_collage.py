@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image, ImageChops, ImageFilter
 from tqdm.auto import tqdm
 
@@ -56,99 +57,197 @@ def parse_layer_spec(spec: str, count: int) -> list[int]:
     return sorted(selected)
 
 
+class SpatialRoutingProcessor:
+    """Qwen attention with output-query routing between B and C memories."""
+
+    def __init__(self, controller, original):
+        self.controller = controller
+        self.original = original
+
+    def __call__(
+        self, attn, hidden_states, encoder_hidden_states=None,
+        encoder_hidden_states_mask=None, attention_mask=None,
+        image_rotary_emb=None, **kwargs,
+    ):
+        controller = self.controller
+        if not controller.active:
+            return self.original(
+                attn, hidden_states, encoder_hidden_states,
+                encoder_hidden_states_mask, attention_mask, image_rotary_emb, **kwargs,
+            )
+        if encoder_hidden_states is None or attention_mask is not None:
+            raise RuntimeError("E5 requires Qwen's standard double-stream attention inputs")
+
+        from diffusers.models.attention_dispatch import dispatch_attention_fn
+        from diffusers.models.transformers.transformer_qwenimage import ROPE_PER_DEVICE
+
+        seq_txt = encoder_hidden_states.shape[1]
+        seq_img = hidden_states.shape[1]
+        output_tokens = (controller.args.height // 16) * (controller.args.width // 16)
+        remainder = seq_img - output_tokens
+        if remainder <= 0 or remainder % 2:
+            raise RuntimeError(
+                f"Unexpected [B,C] image-token layout: {seq_img} tokens; expected output + two equal conditions"
+            )
+        condition_tokens = remainder // 2
+        if condition_tokens != output_tokens:
+            raise RuntimeError(
+                "E5 currently requires square 1024-area B and C inputs matching the output token grid; "
+                f"got output={output_tokens}, condition={condition_tokens}."
+            )
+
+        img_query = attn.to_q(hidden_states)
+        img_key = attn.to_k(hidden_states)
+        img_value = attn.to_v(hidden_states)
+        txt_query = attn.add_q_proj(encoder_hidden_states)
+        txt_key = attn.add_k_proj(encoder_hidden_states)
+        txt_value = attn.add_v_proj(encoder_hidden_states)
+        head_dim = attn.inner_dim // attn.heads
+        img_query = img_query.unflatten(-1, (-1, head_dim))
+        img_key = img_key.unflatten(-1, (-1, head_dim))
+        img_value = img_value.unflatten(-1, (-1, head_dim))
+        txt_query = txt_query.unflatten(-1, (-1, head_dim))
+        txt_key = txt_key.unflatten(-1, (-1, head_dim))
+        txt_value = txt_value.unflatten(-1, (-1, head_dim))
+        if attn.norm_q is not None:
+            img_query = attn.norm_q(img_query)
+        if attn.norm_k is not None:
+            img_key = attn.norm_k(img_key)
+        if attn.norm_added_q is not None:
+            txt_query = attn.norm_added_q(txt_query)
+        if attn.norm_added_k is not None:
+            txt_key = attn.norm_added_k(txt_key)
+        if image_rotary_emb is not None:
+            img_freqs, txt_freqs = image_rotary_emb
+            apply_rope = ROPE_PER_DEVICE.get(img_query.device.type, ROPE_PER_DEVICE["cuda"])
+            img_query = apply_rope(img_query, img_freqs)
+            img_key = apply_rope(img_key, img_freqs)
+            txt_query = apply_rope(txt_query, txt_freqs)
+            txt_key = apply_rope(txt_key, txt_freqs)
+
+        backend = getattr(self.original, "_attention_backend", None)
+        parallel = getattr(self.original, "_parallel_config", None)
+        image_mask = torch.ones((hidden_states.shape[0], seq_img), dtype=torch.bool, device=hidden_states.device)
+        full_mask = None
+        if encoder_hidden_states_mask is not None:
+            full_mask = torch.cat([encoder_hidden_states_mask, image_mask], dim=1)[:, None, None, :]
+
+        joint_query = torch.cat([txt_query, img_query], dim=1)
+        joint_key = torch.cat([txt_key, img_key], dim=1)
+        joint_value = torch.cat([txt_value, img_value], dim=1)
+        joint = dispatch_attention_fn(
+            joint_query, joint_key, joint_value, attn_mask=full_mask,
+            dropout_p=0.0, is_causal=False, backend=backend, parallel_config=parallel,
+        )
+
+        # Shared context retains text and noisy-output self-attention. The only
+        # difference between branches is whether condition memory comes from B or C.
+        common_key = torch.cat([txt_key, img_key[:, :output_tokens]], dim=1)
+        common_value = torch.cat([txt_value, img_value[:, :output_tokens]], dim=1)
+        base_slice = slice(output_tokens, output_tokens + condition_tokens)
+        collage_slice = slice(output_tokens + condition_tokens, output_tokens + 2 * condition_tokens)
+        base_key = torch.cat([common_key, img_key[:, base_slice]], dim=1)
+        base_value = torch.cat([common_value, img_value[:, base_slice]], dim=1)
+        collage_key = torch.cat([common_key, img_key[:, collage_slice]], dim=1)
+        collage_value = torch.cat([common_value, img_value[:, collage_slice]], dim=1)
+        branch_mask = None
+        if encoder_hidden_states_mask is not None:
+            branch_image_mask = torch.ones(
+                (hidden_states.shape[0], output_tokens + condition_tokens),
+                dtype=torch.bool, device=hidden_states.device,
+            )
+            branch_mask = torch.cat([encoder_hidden_states_mask, branch_image_mask], dim=1)[:, None, None, :]
+        output_query = img_query[:, :output_tokens]
+        base_attention = dispatch_attention_fn(
+            output_query, base_key, base_value, attn_mask=branch_mask,
+            dropout_p=0.0, is_causal=False, backend=backend, parallel_config=parallel,
+        )
+        collage_attention = dispatch_attention_fn(
+            output_query, collage_key, collage_value, attn_mask=branch_mask,
+            dropout_p=0.0, is_causal=False, backend=backend, parallel_config=parallel,
+        )
+        gate = controller.spatial_gate(output_tokens, joint.device, joint.dtype)
+        routed = base_attention * (1 - gate) + collage_attention * gate
+        joint[:, seq_txt:seq_txt + output_tokens] = routed
+
+        joint = joint.flatten(2, 3).to(joint_query.dtype)
+        txt_output = joint[:, :seq_txt]
+        img_output = joint[:, seq_txt:]
+        img_output = attn.to_out[0](img_output.contiguous())
+        if len(attn.to_out) > 1:
+            img_output = attn.to_out[1](img_output)
+        txt_output = attn.to_add_out(txt_output.contiguous())
+        controller.calls += 1
+        controller.layout = {
+            "output_tokens": output_tokens,
+            "tokens_per_condition_image": condition_tokens,
+            "sequence_tokens": seq_img,
+        }
+        return img_output, txt_output
+
+
 class SpatialBaseKVShare:
-    """Share base-image K/V into the collage stream outside a spatial gate."""
+    """Install and control query-dependent B/C attention routing."""
 
     def __init__(self, pipe, args):
         self.args = args
         self.blocks = list(pipe.transformer.transformer_blocks)
         self.layers = parse_layer_spec(args.kv_layers, len(self.blocks))
-        self.handles = []
+        self.originals = {}
         self.gate = None
         self.active = False
-        self.replacements = {"key": 0, "value": 0}
+        self.calls = 0
         self.layout = None
 
     def set_gate(self, mask: Image.Image):
         gate = dilate(mask.convert("L"), self.args.kv_edit_dilation)
         if self.args.kv_gate_blur > 0:
             gate = gate.filter(ImageFilter.GaussianBlur(self.args.kv_gate_blur))
-        self.gate = np.asarray(gate, dtype=np.float32) / 255.0
+        self.gate = np.asarray(gate, dtype=np.float32).copy() / 255.0
         return gate
 
-    def _spatial_gate(self, token_count: int, device, dtype):
+    def spatial_gate(self, token_count, device, dtype):
         height, width = self.gate.shape
         grid_width = max(1, round(math.sqrt(token_count * width / height)))
         grid_height = token_count // grid_width
         if grid_height * grid_width != token_count:
-            side = round(math.sqrt(token_count))
-            if side * side != token_count:
-                raise RuntimeError(f"Cannot map {token_count} condition tokens to a spatial grid")
-            grid_height = grid_width = side
-        image = Image.fromarray(np.uint8(np.clip(self.gate, 0, 1) * 255))
-        values = np.asarray(image.resize((grid_width, grid_height), Image.Resampling.BILINEAR), dtype=np.float32).copy()
-        return torch.from_numpy(values.reshape(-1)).to(device=device, dtype=dtype)[None, :, None]
-
-    def _hook(self, kind: str):
-        def hook(_module, _inputs, output):
-            if not self.active or self.gate is None or not torch.is_tensor(output) or output.ndim != 3:
-                return output
-            # Image-token packing for [base, collage]: [noisy output, base, collage].
-            output_tokens = (self.args.height // 16) * (self.args.width // 16)
-            remainder = output.shape[1] - output_tokens
-            if remainder <= 0 or remainder % 2:
-                raise RuntimeError(
-                    f"Unexpected Qwen image-token layout {tuple(output.shape)}; "
-                    "expected output tokens followed by equally sized base and collage streams."
-                )
-            condition_tokens = remainder // 2
-            base_start = output_tokens
-            collage_start = base_start + condition_tokens
-            gate = self._spatial_gate(condition_tokens, output.device, output.dtype)
-            base_kv = output[:, base_start:collage_start]
-            collage_kv = output[:, collage_start:collage_start + condition_tokens]
-            mixed = collage_kv * gate + base_kv * (1 - gate)
-            result = output.clone()
-            result[:, collage_start:collage_start + condition_tokens] = mixed
-            self.replacements[kind] += 1
-            self.layout = {
-                "output_tokens": output_tokens,
-                "tokens_per_condition_image": condition_tokens,
-                "sequence_tokens": int(output.shape[1]),
-            }
-            return result
-        return hook
+            raise RuntimeError(f"Cannot map {token_count} output tokens to the edit gate")
+        gate = Image.fromarray(np.uint8(np.clip(self.gate, 0, 1) * 255)).resize(
+            (grid_width, grid_height), Image.Resampling.BILINEAR
+        )
+        values = torch.from_numpy(np.asarray(gate, dtype=np.float32).copy().reshape(-1) / 255.0)
+        return values.to(device=device, dtype=dtype)[None, :, None, None]
 
     def install(self):
         for index in self.layers:
             attention = self.blocks[index].attn
-            self.handles.append(attention.to_k.register_forward_hook(self._hook("key")))
-            self.handles.append(attention.to_v.register_forward_hook(self._hook("value")))
+            self.originals[index] = attention.processor
+            attention.set_processor(SpatialRoutingProcessor(self, attention.processor))
 
     def begin(self):
         if self.gate is None:
-            raise RuntimeError("Set the spatial K/V gate before beginning inference")
-        self.replacements = {"key": 0, "value": 0}
+            raise RuntimeError("Set the SAM2-derived spatial gate before inference")
+        self.calls = 0
         self.layout = None
         self.active = True
 
     def end(self):
         self.active = False
-        expected = len(self.layers) * self.args.steps
-        if self.replacements["key"] != expected or self.replacements["value"] != expected:
-            raise RuntimeError(
-                f"Incomplete K/V intervention: {self.replacements}; expected {expected} calls per projection."
-            )
+        cfg_passes = 2 if self.args.true_cfg_scale > 1 and self.args.negative_prompt is not None else 1
+        expected = len(self.layers) * self.args.steps * cfg_passes
+        if self.calls != expected:
+            raise RuntimeError(f"Spatial routing ran {self.calls} times; expected {expected}")
         return {
+            "mechanism": "query-dependent base/collage attention routing",
             "layers": self.layers,
-            "projection_calls": dict(self.replacements),
+            "processor_calls": self.calls,
             "token_layout": self.layout,
         }
 
     def close(self):
         self.active = False
-        for handle in self.handles:
-            handle.remove()
+        for index, processor in self.originals.items():
+            self.blocks[index].attn.set_processor(processor)
 
 
 def generate_base(pipe, case, args, path: Path):
@@ -256,7 +355,7 @@ def parse_args():
     parser.add_argument("--object_seed", type=int, default=1337)
     parser.add_argument("--true_cfg_scale", type=float, default=1.0)
     parser.add_argument("--negative_prompt", default=" ")
-    parser.add_argument("--mask_backend", choices=("auto", "sam2", "difference"), default="auto")
+    parser.add_argument("--mask_backend", choices=("sam2",), default="sam2", help="SAM2 is used only for clean reference cutouts")
     parser.add_argument("--sam_model_id", default="facebook/sam2-hiera-small")
     parser.add_argument("--sam_device", default="cpu")
     parser.add_argument("--background_threshold", type=float, default=24)
@@ -268,7 +367,7 @@ def parse_args():
     parser.add_argument("--default_object_height", type=float, default=.25)
     parser.add_argument("--object_height_priors")
     parser.add_argument("--object_scale", type=float, default=.92)
-    parser.add_argument("--kv_layers", default="all", help="Comma/range specification, e.g. 20-49, or all")
+    parser.add_argument("--kv_layers", default="20-49", help="Layers using spatial B/C attention routing")
     parser.add_argument("--kv_edit_dilation", type=int, default=24, help="Pixels around pasted object allowed to use collage K/V")
     parser.add_argument("--kv_gate_blur", type=float, default=3.0)
     return parser.parse_args()
