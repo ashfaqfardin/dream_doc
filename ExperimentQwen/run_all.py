@@ -62,6 +62,7 @@ EXPERIMENTS = [
     {"id":"e5","name":"One-Pass Collage-Primary Residual Feature Routing with RMBG-2.0","script":HERE/"e5_spatial_kv_collage.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e5_spatial_kv_collage")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
     {"id":"e6","name":"Block-Sparse Source-Aware Reference Attention","script":HERE/"e6_block_sparse_reference_attention.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e6_block_sparse_attention")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
     {"id":"e8","name":"Training-Free Masked Object-Attention Insertion","script":HERE/"e8_masked_object_attention_insertion.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e8_masked_object_attention")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
+    {"id":"e9","name":"Placeholder Geometry + Semantic Matched-Value Appearance Transfer","script":HERE/"e9_placeholder_then_semantic_value_matching.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e9_semantic_value_matching")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -95,6 +96,10 @@ def parse_args():
     parser.add_argument("--e8_max_objects", type=int, help="Limit objects per E8 case")
     parser.add_argument("--e8_injection_layers", default="6-35", help="E8 object-attention layers")
     parser.add_argument("--e8_object_mass", type=float, default=.35, help="E8 desired object-to-main attention mass ratio")
+    parser.add_argument("--e9_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E9")
+    parser.add_argument("--e9_max_objects", type=int, choices=(1, 2, 3), help="Limit objects per E9 case")
+    parser.add_argument("--e9_match_layers", default="12-35", help="E9 semantic value-matching layers")
+    parser.add_argument("--e9_value_strength", type=float, default=.65, help="E9 reference-value interpolation strength")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -243,6 +248,15 @@ def main():
                 command.extend(["--case_ids", *map(str, args.e8_case_ids)])
             if args.e8_max_objects is not None:
                 command.extend(["--max_objects", str(args.e8_max_objects)])
+        if experiment["id"] == "e9":
+            command.extend([
+                "--match_layers", args.e9_match_layers,
+                "--value_strength", str(args.e9_value_strength),
+            ])
+            if args.e9_case_ids:
+                command.extend(["--case_ids", *map(str, args.e9_case_ids)])
+            if args.e9_max_objects is not None:
+                command.extend(["--max_objects", str(args.e9_max_objects)])
         started = time.perf_counter()
         result = subprocess.run(command, cwd=str(ROOT), env=os.environ.copy())
         elapsed = format_duration(time.perf_counter() - started)
