@@ -38,14 +38,17 @@ HERE = Path(__file__).resolve().parent
 class RMBG2Cutout:
     """Soft-alpha foreground extraction using the gated BRIA RMBG-2.0 model."""
 
-    def __init__(self, model_id: str, device: str, input_size: int):
+    def __init__(self, model_id: str, revision: str, device: str, input_size: int):
         from transformers import AutoModelForImageSegmentation
 
         self.device = torch.device(device)
         self.input_size = input_size
         try:
             self.model = AutoModelForImageSegmentation.from_pretrained(
-                model_id, trust_remote_code=True
+                model_id,
+                revision=revision,
+                code_revision=revision,
+                trust_remote_code=True,
             ).to(self.device).eval()
         except OSError as exc:
             raise RuntimeError(
@@ -502,6 +505,7 @@ def parse_args():
     parser.add_argument("--true_cfg_scale", type=float, default=1.0)
     parser.add_argument("--negative_prompt", default=" ")
     parser.add_argument("--rmbg_model_id", default="briaai/RMBG-2.0")
+    parser.add_argument("--rmbg_revision", default="54c725d3b17ca83aba490092de8acf6118b8bb06", help="Pinned RMBG weights and remote-code revision")
     parser.add_argument("--rmbg_device", default="cuda")
     parser.add_argument("--rmbg_input_size", type=int, default=1024)
     parser.add_argument("--rmbg_crop_threshold", type=int, default=8, help="Alpha threshold used only to find the tight crop")
@@ -542,9 +546,13 @@ def main():
     cases = select_cases(load_suite(prompt_file), args.case_ids)
     save_json(vars(args), out / "config.json")
 
+    try:
+        import kornia  # noqa: F401 -- required by RMBG-2.0 remote model code
+    except ImportError as exc:
+        raise RuntimeError("E5 requires Kornia for RMBG-2.0. Install it with `pip install kornia`.") from exc
     pipe = load_pipe(args)
     references = generate_references(pipe, cases, args, out, prompt_file)
-    segmenter = RMBG2Cutout(args.rmbg_model_id, args.rmbg_device, args.rmbg_input_size)
+    segmenter = RMBG2Cutout(args.rmbg_model_id, args.rmbg_revision, args.rmbg_device, args.rmbg_input_size)
     try:
         cutouts = generate_rmbg_cutouts(segmenter, references, args, out)
     finally:
