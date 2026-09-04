@@ -103,6 +103,7 @@ def parse_args():
     parser.add_argument("--e9_value_strength", type=float, default=.65, help="E9 reference-value interpolation strength")
     parser.add_argument("--e10_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E10")
     parser.add_argument("--e10_max_objects", type=int, choices=(1, 2, 3), help="Limit objects per E10 case")
+    parser.add_argument("--e10_identity_scale", type=float, default=1.8, help="E10 reference-delta guidance strength")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -261,6 +262,7 @@ def main():
             if args.e9_max_objects is not None:
                 command.extend(["--max_objects", str(args.e9_max_objects)])
         if experiment["id"] == "e10":
+            command.extend(["--identity_guidance_scale", str(args.e10_identity_scale)])
             if args.e10_case_ids:
                 command.extend(["--case_ids", *map(str, args.e10_case_ids)])
             if args.e10_max_objects is not None:

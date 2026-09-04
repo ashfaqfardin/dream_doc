@@ -49,7 +49,12 @@ def prepare_vl_images(pipe, images):
 
 @torch.inference_mode()
 def infer_asymmetric(pipe, base, reference, prompt, args, seed):
-    """VL receives [B,O], while the pipeline VAE receives only [B]."""
+    """Apply reference-delta CFG with B as the sole VAE latent canvas.
+
+    Positive noise prediction is conditioned on VL([B,O]); counterfactual
+    baseline prediction is conditioned on VL([B]). Their difference is the
+    reference-specific direction amplified by ``identity_guidance_scale``.
+    """
     semantic_images = prepare_vl_images(pipe, [base, reference])
     prompt_embeds, prompt_mask = pipe.encode_prompt(
         prompt=prompt,
@@ -58,15 +63,15 @@ def infer_asymmetric(pipe, base, reference, prompt, args, seed):
         num_images_per_prompt=1,
     )
 
-    negative_embeds = negative_mask = None
-    cfg_enabled = args.true_cfg_scale > 1.0
-    if cfg_enabled:
-        negative_embeds, negative_mask = pipe.encode_prompt(
-            prompt=args.negative_prompt,
-            image=semantic_images,
-            device=pipe._execution_device,
-            num_images_per_prompt=1,
-        )
+    baseline_images = prepare_vl_images(pipe, [base])
+    baseline_embeds, baseline_mask = pipe.encode_prompt(
+        # Identical text makes the branch difference attributable to O rather
+        # than to a simultaneous change in language instructions.
+        prompt=prompt,
+        image=baseline_images,
+        device=pipe._execution_device,
+        num_images_per_prompt=1,
+    )
 
     # Critical asymmetry: `image` contains B only. O exists solely in the
     # precomputed VL embeddings and never enters the VAE latent token sequence.
@@ -74,9 +79,9 @@ def infer_asymmetric(pipe, base, reference, prompt, args, seed):
         image=[base],
         prompt_embeds=prompt_embeds,
         prompt_embeds_mask=prompt_mask,
-        negative_prompt_embeds=negative_embeds,
-        negative_prompt_embeds_mask=negative_mask,
-        true_cfg_scale=args.true_cfg_scale,
+        negative_prompt_embeds=baseline_embeds,
+        negative_prompt_embeds_mask=baseline_mask,
+        true_cfg_scale=args.identity_guidance_scale,
         num_inference_steps=args.steps,
         width=args.width,
         height=args.height,
@@ -128,10 +133,10 @@ def run_case(pipe, case, references, args, out):
 
         prompt = (
             f"Image 1 is the current scene and is the only output canvas. "
-            f"Image 2 is a visual identity reference for one {name}; it is not "
-            "a scene or an output canvas. Add exactly one complete instance of "
-            f"the Image 2 {name} into a physically plausible unoccupied location "
-            "in Image 1. Preserve the reference object's distinctive shape, "
+            f"Add exactly one complete {name} into a physically plausible "
+            "unoccupied location in Image 1. When an additional reference image "
+            "is present, it is a visual identity reference only—not a scene or "
+            "output canvas—and the inserted object must match its distinctive shape, "
             "proportions, components, colors, materials, texture, and markings, "
             "while adapting only its pose, scale, perspective, illumination, "
             "support contact, shadow, and occlusion to the scene. Preserve the "
@@ -152,6 +157,13 @@ def run_case(pipe, case, references, args, out):
             "vl_inputs": [str(before_path), str(reference_path)],
             "vae_inputs": [str(before_path)],
             "reference_source": record["image"],
+            "guidance": {
+                "equation": "eps_B + s_id * (eps_BO - eps_B)",
+                "identity_guidance_scale": args.identity_guidance_scale,
+                "positive_vl_images": 2,
+                "baseline_vl_images": 1,
+                "vae_images": 1,
+            },
             "final": str(final_path),
             "postprocess": None,
         })
@@ -192,11 +204,17 @@ def parse_args():
     parser.add_argument("--object_seed", type=int, default=1337)
     parser.add_argument("--true_cfg_scale", type=float, default=1.0)
     parser.add_argument("--negative_prompt", default=" ")
+    parser.add_argument(
+        "--identity_guidance_scale", type=float, default=1.8,
+        help="Strength of eps_B + s_id * (eps_BO - eps_B)",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    if args.identity_guidance_scale <= 1.0:
+        raise ValueError("identity_guidance_scale must be greater than 1")
     try:
         import diffusers
         if diffusers.__version__ != "0.40.0":
@@ -223,6 +241,8 @@ def main():
         "method": "asymmetric multimodal conditioning",
         "vl_images": ["current scene", "reference object"],
         "vae_images": ["current scene"],
+        "guidance": "eps_B + s_id * (eps_BO - eps_B)",
+        "identity_guidance_scale": args.identity_guidance_scale,
         "feature_intervention": None,
         "masking": None,
         "postprocess": None,
