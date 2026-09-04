@@ -1,11 +1,12 @@
-"""E11: asymmetric Qwen editing with self-localizing VL-reference K/V injection.
+"""E11: asymmetric Qwen editing with self-localizing VL-reference routing.
 
 The current scene B is the only VAE condition. The VL encoder sees [B, O], and
 this script preserves token provenance so only Image-2 (O) tokens form the
-private reference K/V memory. Selected Qwen transformer layers interpolate
-output-token attention toward that memory through a soft, query-derived,
-temporally smoothed gate. There is no collage, external placement mask, pixel
-composite, or post-generation pass.
+reference K/V columns. Selected Qwen transformer layers measure the native
+per-head attention mass assigned to those columns, form a soft spatial and
+temporal gate, and add a query-specific logit bias before one normalized
+attention softmax. Values are never copied, added, or interpolated outside that
+softmax. There is no collage, external mask, composite, or post-pass.
 
 This is an experimental training-free intervention, not a trained adapter.
 """
@@ -139,9 +140,6 @@ class SelfLocalizingVLKVProcessor:
         if attn.norm_added_k is not None:
             tk = attn.norm_added_k(tk)
 
-        # Content descriptors are retained before RoPE for localization; the
-        # actual native and reference attention both retain Qwen's RoPE.
-        content_q, content_k = iq[:, :nx], tk
         if image_rotary_emb is not None:
             image_freqs, text_freqs = image_rotary_emb
             rope = ROPE_PER_DEVICE.get(iq.device.type, ROPE_PER_DEVICE["cuda"])
@@ -157,54 +155,61 @@ class SelfLocalizingVLKVProcessor:
                 is_causal=False, backend=backend, parallel_config=parallel,
             )
 
-        full_q = torch.cat([tq, iq], dim=1)
         full_k = torch.cat([tk, ik], dim=1)
         full_v = torch.cat([tv, iv], dim=1)
-        full_mask = None
+        valid_keys = None
         if encoder_hidden_states_mask is not None:
             valid_image = torch.ones(
                 (hidden_states.shape[0], ni), dtype=torch.bool, device=hidden_states.device
             )
-            full_mask = torch.cat(
-                [encoder_hidden_states_mask, valid_image], dim=1
-            )[:, None, None, :]
-        native = attend(full_q, full_k, full_v, full_mask)
+            valid_keys = torch.cat([encoder_hidden_states_mask.bool(), valid_image], dim=1)
 
         reference_indices = torch.nonzero(
             ctl.reference_token_mask.to(tk.device), as_tuple=False
         ).flatten()
         if not reference_indices.numel():
             raise RuntimeError("E11 reference provenance mask contains no tokens")
-        reference_k = tk.index_select(1, reference_indices)
-        reference_v = tv.index_select(1, reference_indices)
-        reference_state = attend(iq[:, :nx], reference_k, reference_v)
 
-        query_descriptor = F.normalize(content_q.float().mean(dim=2), dim=-1)
-        key_descriptor = F.normalize(
-            content_k.index_select(1, reference_indices).float().mean(dim=2), dim=-1
+        # Reference indices address the VL/text stream; their positions in the
+        # complete K bank are therefore unchanged. Compute true native
+        # reference attention mass per output query/head without materializing
+        # the full [heads, X, all_keys] tensor at once.
+        reference_full_indices = reference_indices
+        native_mass = ctl.reference_attention_mass(
+            iq[:, :nx], full_k, reference_full_indices, valid_keys, attn
         )
-        confidence = torch.matmul(
-            query_descriptor, key_descriptor.transpose(-1, -2)
-        ).amax(dim=-1)
-        gate = ctl.update_gate(self.layer_index, confidence)
-        strength = ctl.injection_strength(self.layer_index)
+        gate = ctl.update_gate(self.layer_index, native_mass)
+        boost = ctl.logit_boost(self.layer_index)
 
-        native_image = native[:, nt:]
-        output_state = native_image[:, :nx]
-        output_state = output_state + (
-            strength * gate[:, :, None, None].to(output_state.dtype)
-            * (reference_state - output_state)
+        # Text and B query rows remain native. X query rows are evaluated once
+        # over the identical complete K/V bank, with bias only on X -> O edges.
+        other_q = torch.cat([tq, iq[:, nx:]], dim=1)
+        key_mask = None if valid_keys is None else valid_keys[:, None, None, :]
+        other_state = attend(other_q, full_k, full_v, key_mask)
+
+        routed_bias = torch.zeros(
+            (hidden_states.shape[0], 1, nx, full_k.shape[1]),
+            dtype=iq.dtype, device=iq.device,
         )
-        native_image = native_image.clone()
-        native_image[:, :nx] = output_state
-        joint = torch.cat([native[:, :nt], native_image], dim=1).flatten(2, 3)
+        if valid_keys is not None:
+            routed_bias.masked_fill_(~valid_keys[:, None, None, :], -torch.inf)
+        reference_bias = (boost * gate).to(routed_bias.dtype)[:, None, :, None]
+        routed_bias[:, :, :, reference_full_indices] += reference_bias
+        output_state = attend(iq[:, :nx], full_k, full_v, routed_bias)
+
+        text_state = other_state[:, :nt]
+        base_state = other_state[:, nt:]
+        image_state = torch.cat([output_state, base_state], dim=1)
+        joint = torch.cat([text_state, image_state], dim=1).flatten(2, 3)
         joint = joint.to(hidden_states.dtype)
         text_out, image_out = joint[:, :nt], joint[:, nt:]
         image_out = attn.to_out[0](image_out.contiguous())
         if len(attn.to_out) > 1:
             image_out = attn.to_out[1](image_out)
         text_out = attn.to_add_out(text_out.contiguous())
-        ctl.record(self.layer_index, gate, strength, reference_indices.numel())
+        ctl.record(
+            self.layer_index, gate, native_mass, boost, reference_indices.numel()
+        )
         return image_out, text_out
 
 
@@ -236,10 +241,31 @@ class SelfLocalizingVLKV:
         self.measurements.clear()
         self.active = True
 
-    def update_gate(self, layer, confidence):
-        median = confidence.median(dim=1, keepdim=True).values
-        mad = (confidence - median).abs().median(dim=1, keepdim=True).values.clamp_min(1e-5)
-        robust = (confidence - median) / (1.4826 * mad)
+    @staticmethod
+    def reference_attention_mass(query, key, reference_indices, valid_keys, attn):
+        """Chunked exact softmax mass assigned to reference-token columns."""
+        scale = getattr(attn, "scale", None) or query.shape[-1] ** -0.5
+        key_float = key.float()
+        reference_key = key_float.index_select(1, reference_indices)
+        pieces = []
+        for start in range(0, query.shape[1], 128):
+            q = query[:, start:start + 128].float()
+            logits = torch.einsum("bqhd,bkhd->bhqk", q, key_float) * scale
+            if valid_keys is not None:
+                logits.masked_fill_(~valid_keys[:, None, None, :], -torch.inf)
+            ref_logits = torch.einsum(
+                "bqhd,brhd->bhqr", q, reference_key.float()
+            ) * scale
+            log_denominator = torch.logsumexp(logits, dim=-1)
+            log_numerator = torch.logsumexp(ref_logits, dim=-1)
+            pieces.append(torch.exp(log_numerator - log_denominator).mean(dim=1))
+            del logits, ref_logits
+        return torch.cat(pieces, dim=1).clamp(0, 1)
+
+    def update_gate(self, layer, attention_mass):
+        median = attention_mass.median(dim=1, keepdim=True).values
+        mad = (attention_mass - median).abs().median(dim=1, keepdim=True).values.clamp_min(1e-5)
+        robust = (attention_mass - median) / (1.4826 * mad)
         gate = torch.sigmoid((robust - self.args.gate_threshold) / self.args.gate_temperature)
         gh, gw = self.grid_shape(gate.shape[1])
         gate = F.avg_pool2d(
@@ -262,7 +288,7 @@ class SelfLocalizingVLKV:
             raise RuntimeError(f"Cannot map {tokens} output tokens to a grid")
         return gh, gw
 
-    def injection_strength(self, layer):
+    def logit_boost(self, layer):
         call = self.layer_calls.get(layer, 0)
         self.layer_calls[layer] = call + 1
         step_phase = call / max(self.args.steps - 1, 1)
@@ -274,13 +300,15 @@ class SelfLocalizingVLKV:
         ) ** 2
         position = self.layers.index(layer) / max(len(self.layers) - 1, 1)
         layer_envelope = .35 + .65 * math.sin(math.pi * position) ** 2
-        return self.args.kv_strength * temporal * layer_envelope
+        return self.args.reference_logit_boost * temporal * layer_envelope
 
-    def record(self, layer, gate, strength, reference_tokens):
+    def record(self, layer, gate, attention_mass, boost, reference_tokens):
         self.measurements.append({
             "layer": layer,
             "call": self.layer_calls[layer] - 1,
-            "strength": strength,
+            "reference_logit_boost": boost,
+            "native_reference_mass_mean": float(attention_mass.mean().detach().cpu()),
+            "native_reference_mass_max": float(attention_mass.max().detach().cpu()),
             "gate_mean": float(gate.mean().detach().cpu()),
             "gate_max": float(gate.max().detach().cpu()),
             "reference_tokens": int(reference_tokens),
@@ -297,7 +325,7 @@ class SelfLocalizingVLKV:
         image.resize((self.args.width, self.args.height), Image.Resampling.BILINEAR).save(gate_path)
         return {
             "layers": self.layers,
-            "kv_strength": self.args.kv_strength,
+            "reference_logit_boost": self.args.reference_logit_boost,
             "gate": str(gate_path),
             "measurements": self.measurements,
         }
@@ -419,7 +447,11 @@ def parse_args():
     parser.add_argument("--negative_prompt", default=" ")
     parser.add_argument("--identity_guidance_scale", type=float, default=1.35)
     parser.add_argument("--injection_layers", default="middle")
-    parser.add_argument("--kv_strength", type=float, default=.22)
+    parser.add_argument(
+        "--reference_logit_boost", "--kv_strength", dest="reference_logit_boost",
+        type=float, default=1.5,
+        help="Maximum additive bias on output-query to reference-token logits",
+    )
     parser.add_argument("--injection_start", type=float, default=.25)
     parser.add_argument("--gate_threshold", type=float, default=1.0)
     parser.add_argument("--gate_temperature", type=float, default=.35)
@@ -431,8 +463,8 @@ def parse_args():
 
 def main():
     args = parse_args()
-    if args.identity_guidance_scale <= 1 or not 0 <= args.kv_strength <= 1:
-        raise ValueError("identity_guidance_scale must exceed 1 and kv_strength must be in [0,1]")
+    if args.identity_guidance_scale <= 1 or args.reference_logit_boost < 0:
+        raise ValueError("identity_guidance_scale must exceed 1 and reference_logit_boost must be nonnegative")
     if not 0 <= args.injection_start < 1 or args.gate_temperature <= 0:
         raise ValueError("invalid injection schedule or gate temperature")
     if not 0 <= args.gate_ema < 1 or not 0 < args.max_gate_area <= 1:
@@ -461,7 +493,7 @@ def main():
     finally:
         controller.close()
     save_json({
-        "method": "asymmetric VL/VAE plus provenance-aware self-localizing VL-KV injection",
+        "method": "asymmetric VL/VAE plus provenance-aware self-localizing VL-KV logit routing",
         "vl_images": ["current scene", "reference object"], "vae_images": ["current scene"],
         "external_mask": None, "postprocess": None, "cases": summary,
     }, out / "summary.json")

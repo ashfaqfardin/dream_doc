@@ -109,7 +109,7 @@ def parse_args():
     parser.add_argument("--e11_max_objects", type=int, choices=(1, 2, 3), help="Limit objects per E11 case")
     parser.add_argument("--e11_identity_scale", type=float, default=1.35, help="E11 reference-delta CFG strength")
     parser.add_argument("--e11_injection_layers", default="middle", help="E11 VL-reference K/V layers")
-    parser.add_argument("--e11_kv_strength", type=float, default=.22, help="E11 maximum gated K/V residual strength")
+    parser.add_argument("--e11_reference_boost", type=float, default=1.5, help="E11 maximum reference-token logit bias")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -277,7 +277,7 @@ def main():
             command.extend([
                 "--identity_guidance_scale", str(args.e11_identity_scale),
                 "--injection_layers", args.e11_injection_layers,
-                "--kv_strength", str(args.e11_kv_strength),
+                "--reference_logit_boost", str(args.e11_reference_boost),
             ])
             if args.e11_case_ids:
                 command.extend(["--case_ids", *map(str, args.e11_case_ids)])
