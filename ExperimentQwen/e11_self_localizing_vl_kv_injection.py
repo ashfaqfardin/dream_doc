@@ -20,12 +20,18 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image
+from PIL import Image, ImageFilter
 from tqdm.auto import tqdm
 
 from e1_baseline import fit, infer, load_pipe, make_generator, save_json
 from e3_prompt_suite import generate_references, load_suite, reference_key, select_cases, slug
-from e5_spatial_kv_collage import generate_base, parse_layer_spec
+from e5_spatial_kv_collage import (
+    RMBG2Cutout,
+    generate_base,
+    generate_rmbg_cutouts,
+    object_condition,
+    parse_layer_spec,
+)
 
 
 HERE = Path(__file__).resolve().parent
@@ -45,8 +51,8 @@ def prepare_vl_images(pipe, images):
 
 
 @torch.inference_mode()
-def encode_with_image_provenance(pipe, prompt, images):
-    """Return Qwen VL embeddings plus masks for each expanded image-token run."""
+def encode_with_image_provenance(pipe, prompt, images, alpha_masks, alpha_threshold):
+    """Return VL embeddings and alpha-filtered masks for each image-token run."""
     image_template = "Picture {}: <|vision_start|><|image_pad|><|vision_end|>"
     image_prefix = "".join(image_template.format(i + 1) for i in range(len(images)))
     text = [pipe.prompt_template_encode.format(image_prefix + prompt)]
@@ -79,15 +85,83 @@ def encode_with_image_provenance(pipe, prompt, images):
 
     drop = pipe.prompt_template_encode_start_idx
     hidden = hidden[drop:].to(dtype=pipe.text_encoder.dtype)
-    provenance = []
-    for run in runs:
+    provenance, foreground = [], []
+    grids = inputs.get("image_grid_thw")
+    merge = int(getattr(pipe.processor.image_processor, "merge_size", 2))
+    for image_index, run in enumerate(runs):
         mask = torch.zeros(ids.shape[0], dtype=torch.bool, device=ids.device)
         mask[run] = True
         provenance.append(mask[drop:])
+        foreground_mask = mask.clone()
+        alpha = alpha_masks[image_index] if alpha_masks is not None else None
+        if alpha is not None:
+            if grids is None:
+                raise RuntimeError("Qwen processor did not return image_grid_thw")
+            grid = grids[image_index]
+            gh, gw = int(grid[1].item()) // merge, int(grid[2].item()) // merge
+            if gh * gw != run.numel():
+                raise RuntimeError(
+                    f"VL alpha grid {gh}x{gw} does not match token run {run.numel()}"
+                )
+            alpha_grid = alpha.convert("L").resize((gw, gh), Image.Resampling.BOX)
+            keep = torch.from_numpy(
+                (np.asarray(alpha_grid, dtype=np.uint8).copy().reshape(-1) / 255.0)
+                >= alpha_threshold
+            ).to(device=ids.device)
+            foreground_mask[run] = keep
+            foreground_mask &= mask
+        foreground.append(foreground_mask[drop:])
     attention_mask = torch.ones(
         (1, hidden.shape[0]), dtype=torch.long, device=hidden.device
     )
-    return hidden.unsqueeze(0), attention_mask, provenance
+    return hidden.unsqueeze(0), attention_mask, provenance, foreground
+
+
+def largest_component(mask):
+    """Keep the largest 4-connected component in a small latent-grid mask."""
+    mask = mask.astype(bool)
+    seen = np.zeros_like(mask, dtype=bool)
+    best = []
+    height, width = mask.shape
+    for y, x in zip(*np.nonzero(mask)):
+        if seen[y, x]:
+            continue
+        stack, component = [(int(y), int(x))], []
+        seen[y, x] = True
+        while stack:
+            cy, cx = stack.pop()
+            component.append((cy, cx))
+            for ny, nx in ((cy - 1, cx), (cy + 1, cx), (cy, cx - 1), (cy, cx + 1)):
+                if 0 <= ny < height and 0 <= nx < width and mask[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    stack.append((ny, nx))
+        if len(component) > len(best):
+            best = component
+    result = np.zeros_like(mask, dtype=np.uint8)
+    for y, x in best:
+        result[y, x] = 255
+    return result
+
+
+def placeholder_prior(before, placeholder, args):
+    """Localize the generic insertion on Qwen's output-token grid."""
+    gh, gw = args.height // 16, args.width // 16
+    a = np.asarray(before.resize((gw, gh), Image.Resampling.BOX), dtype=np.float32)
+    b = np.asarray(placeholder.resize((gw, gh), Image.Resampling.BOX), dtype=np.float32)
+    difference = np.sqrt(np.square(a - b).mean(axis=2))
+    threshold = max(
+        args.placeholder_difference_floor,
+        float(np.quantile(difference, args.placeholder_difference_quantile)),
+    )
+    component = largest_component(difference >= threshold)
+    if not component.any():
+        raise RuntimeError("Placeholder pass produced no coherent changed region")
+    image = Image.fromarray(component)
+    if args.placeholder_dilation > 0:
+        image = image.filter(ImageFilter.MaxFilter(2 * args.placeholder_dilation + 1))
+    if args.placeholder_blur > 0:
+        image = image.filter(ImageFilter.GaussianBlur(args.placeholder_blur))
+    return image.resize((args.width, args.height), Image.Resampling.BILINEAR)
 
 
 class SelfLocalizingVLKVProcessor:
@@ -221,6 +295,8 @@ class SelfLocalizingVLKV:
         self.layers = parse_layer_spec(args.injection_layers, len(self.blocks))
         self.originals = {}
         self.reference_token_mask = torch.empty(0, dtype=torch.bool)
+        self.placement_prior = None
+        self.prior_cache = {}
         self.ema_gates = {}
         self.layer_calls = {}
         self.measurements = []
@@ -234,8 +310,12 @@ class SelfLocalizingVLKV:
                 SelfLocalizingVLKVProcessor(self, block.attn.processor, index)
             )
 
-    def begin(self, reference_token_mask):
+    def begin(self, reference_token_mask, placement_prior):
         self.reference_token_mask = reference_token_mask.detach().bool()
+        self.placement_prior = np.asarray(
+            placement_prior.convert("L"), dtype=np.float32
+        ).copy() / 255.0
+        self.prior_cache.clear()
         self.ema_gates.clear()
         self.layer_calls.clear()
         self.measurements.clear()
@@ -273,6 +353,10 @@ class SelfLocalizingVLKV:
             kernel_size=2 * self.args.gate_smoothing + 1,
             stride=1, padding=self.args.gate_smoothing,
         ).reshape_as(gate)
+        prior = self.placement_gate(gate.shape[1], gate.device)
+        # The placeholder supplies geometry; reference mass supplies identity
+        # confidence within that geometry. A small floor avoids hollow gates.
+        gate = prior * (self.args.attention_gate_floor + (1 - self.args.attention_gate_floor) * gate)
         if gate.mean() > self.args.max_gate_area:
             cutoff = torch.quantile(gate.float(), 1.0 - self.args.max_gate_area, dim=1, keepdim=True)
             gate = gate * (gate >= cutoff).to(gate.dtype)
@@ -280,6 +364,21 @@ class SelfLocalizingVLKV:
         gate = gate if old is None else self.args.gate_ema * old + (1 - self.args.gate_ema) * gate
         self.ema_gates[layer] = gate.detach()
         return gate
+
+    def placement_gate(self, tokens, device):
+        key = (tokens, str(device))
+        if key in self.prior_cache:
+            return self.prior_cache[key]
+        if self.placement_prior is None:
+            raise RuntimeError("Set the placeholder placement prior before E11 inference")
+        gh, gw = self.grid_shape(tokens)
+        image = Image.fromarray(np.uint8(np.clip(self.placement_prior, 0, 1) * 255))
+        values = np.asarray(
+            image.resize((gw, gh), Image.Resampling.BOX), dtype=np.float32
+        ).copy().reshape(1, -1) / 255.0
+        result = torch.from_numpy(values).to(device=device)
+        self.prior_cache[key] = result
+        return result
 
     def grid_shape(self, tokens):
         gw = max(1, round(math.sqrt(tokens * self.args.width / self.args.height)))
@@ -337,10 +436,14 @@ class SelfLocalizingVLKV:
 
 
 @torch.inference_mode()
-def infer_injected(pipe, controller, base, reference, prompt, args, seed, gate_path):
+def infer_injected(
+    pipe, controller, base, reference, reference_alpha, placement_prior,
+    prompt, args, seed, gate_path,
+):
     positive_images = prepare_vl_images(pipe, [base, reference])
-    positive, positive_mask, provenance = encode_with_image_provenance(
-        pipe, prompt, positive_images
+    positive, positive_mask, provenance, foreground = encode_with_image_provenance(
+        pipe, prompt, positive_images, [None, reference_alpha],
+        args.reference_alpha_threshold,
     )
     baseline, baseline_mask = pipe.encode_prompt(
         prompt=prompt,
@@ -348,7 +451,10 @@ def infer_injected(pipe, controller, base, reference, prompt, args, seed, gate_p
         device=pipe._execution_device,
         num_images_per_prompt=1,
     )
-    controller.begin(provenance[1])
+    # Use only alpha-confirmed tokens belonging to Image 2. Image-2 background
+    # tokens remain in the native condition but receive no routing boost.
+    reference_foreground = provenance[1] & foreground[1]
+    controller.begin(reference_foreground, placement_prior)
     try:
         result = pipe(
             image=[base],
@@ -368,7 +474,7 @@ def infer_injected(pipe, controller, base, reference, prompt, args, seed, gate_p
     return result.images[0].convert("RGB"), diagnostics
 
 
-def run_case(pipe, controller, case, references, args, out):
+def run_case(pipe, controller, case, references, cutouts, args, out):
     case_id = int(case["id"])
     case_dir = out / "cases" / f"case_{case_id:03d}"
     steps_dir = case_dir / "steps"
@@ -395,28 +501,47 @@ def run_case(pipe, controller, case, references, args, out):
             continue
 
         before = fit(current, (args.width, args.height))
-        reference = fit(Image.open(record["image"]), (args.width, args.height))
+        reference, reference_alpha = object_condition(cutouts[key], args)
         before_path = Path(f"{prefix}_before.png")
         reference_path = Path(f"{prefix}_vl_reference.png")
+        alpha_path = Path(f"{prefix}_vl_reference_alpha.png")
+        placeholder_path = Path(f"{prefix}_placeholder.png")
+        prior_path = Path(f"{prefix}_placeholder_prior.png")
         before.save(before_path)
         reference.save(reference_path)
-        prompt = (
-            f"Image 1 is the current scene and the only output canvas. Add exactly one complete {name} "
-            "into a physically plausible unoccupied location. When an additional reference image is present, "
-            "it defines the inserted object's identity only. Match its distinctive shape, proportions, components, "
-            "colors, materials, texture, and markings while adapting pose, scale, perspective, lighting, contact, "
-            "shadow, and occlusion naturally. Preserve the background and every existing object. Never reproduce "
-            "the reference framing or background, and return one scene image rather than a collage or grid."
+        reference_alpha.save(alpha_path)
+        placeholder_prompt = (
+            f"Image 1 is the current scene. Add exactly one complete photorealistic {name} "
+            "in a physically plausible unoccupied location. Choose natural scale, pose, "
+            "perspective, support, contact shadow, and occlusion. Preserve the background "
+            "and every existing object. Keep the object fully inside the frame."
         )
-        seed = args.seed + case_id * 10000 + index * 100
+        placeholder_seed = args.seed + case_id * 10000 + index * 100
+        placeholder = infer(pipe, [before], placeholder_prompt, args, placeholder_seed)
+        placement_prior = placeholder_prior(before, placeholder, args)
+        placeholder.save(placeholder_path)
+        placement_prior.save(prior_path)
+        prompt = (
+            f"Image 1 is the only output canvas and already contains one newly placed generic {name}. "
+            f"Image 2 defines the exact identity of that {name}. Transform only the existing generic {name} "
+            "to match Image 2's distinctive shape, proportions, components, colors, materials, texture, and "
+            "markings. Keep its established location, scale, pose, perspective, support, contact shadow, and "
+            "occlusion. Preserve the background and every other object. Do not add or duplicate objects, reproduce "
+            "the reference framing or background, or return a collage or grid."
+        )
+        seed = placeholder_seed + 1
         current, diagnostics = infer_injected(
-            pipe, controller, before, reference, prompt, args, seed, gate_path
+            pipe, controller, placeholder, reference, reference_alpha,
+            placement_prior, prompt, args, seed, gate_path,
         )
         current.save(final_path)
         history.append({
             "step": index, "name": name, "status": "generated", "seed": seed,
-            "vl_inputs": [str(before_path), str(reference_path)],
-            "vae_inputs": [str(before_path)], "reference_source": record["image"],
+            "placeholder_seed": placeholder_seed,
+            "placeholder": str(placeholder_path), "placeholder_prior": str(prior_path),
+            "vl_inputs": [str(placeholder_path), str(reference_path)],
+            "vae_inputs": [str(placeholder_path)], "reference_source": record["image"],
+            "reference_alpha": str(alpha_path),
             "injection": diagnostics, "final": str(final_path), "postprocess": None,
         })
         save_json(history, case_dir / "history.json")
@@ -446,6 +571,16 @@ def parse_args():
     parser.add_argument("--true_cfg_scale", type=float, default=1.0)
     parser.add_argument("--negative_prompt", default=" ")
     parser.add_argument("--identity_guidance_scale", type=float, default=1.35)
+    parser.add_argument("--rmbg_model_id", default="briaai/RMBG-2.0")
+    parser.add_argument("--rmbg_revision", default="54c725d3b17ca83aba490092de8acf6118b8bb06")
+    parser.add_argument("--rmbg_device", default="cuda")
+    parser.add_argument("--rmbg_input_size", type=int, default=1024)
+    parser.add_argument("--rmbg_crop_threshold", type=int, default=8)
+    parser.add_argument("--object_alpha_low", type=float, default=.15)
+    parser.add_argument("--object_alpha_high", type=float, default=.85)
+    parser.add_argument("--object_condition_scale", type=float, default=.82)
+    parser.add_argument("--object_condition_background", type=int, default=127)
+    parser.add_argument("--reference_alpha_threshold", type=float, default=.35)
     parser.add_argument("--injection_layers", default="middle")
     parser.add_argument(
         "--reference_logit_boost", "--kv_strength", dest="reference_logit_boost",
@@ -458,6 +593,11 @@ def parse_args():
     parser.add_argument("--gate_smoothing", type=int, default=2)
     parser.add_argument("--gate_ema", type=float, default=.8)
     parser.add_argument("--max_gate_area", type=float, default=.35)
+    parser.add_argument("--attention_gate_floor", type=float, default=.20)
+    parser.add_argument("--placeholder_difference_quantile", type=float, default=.88)
+    parser.add_argument("--placeholder_difference_floor", type=float, default=3.0)
+    parser.add_argument("--placeholder_dilation", type=int, default=2)
+    parser.add_argument("--placeholder_blur", type=float, default=1.0)
     return parser.parse_args()
 
 
@@ -469,6 +609,12 @@ def main():
         raise ValueError("invalid injection schedule or gate temperature")
     if not 0 <= args.gate_ema < 1 or not 0 < args.max_gate_area <= 1:
         raise ValueError("invalid gate EMA or maximum area")
+    if not 0 <= args.reference_alpha_threshold <= 1 or not 0 <= args.attention_gate_floor <= 1:
+        raise ValueError("alpha threshold and attention gate floor must be in [0,1]")
+    if not 0 < args.placeholder_difference_quantile < 1:
+        raise ValueError("placeholder_difference_quantile must be in (0,1)")
+    if not 0 <= args.object_alpha_low < args.object_alpha_high <= 1:
+        raise ValueError("object alpha limits must satisfy 0 <= low < high <= 1")
     try:
         import diffusers
         if diffusers.__version__ != "0.40.0":
@@ -483,18 +629,27 @@ def main():
     save_json(vars(args), out / "config.json")
     pipe = load_pipe(args)
     references = generate_references(pipe, cases, args, out, prompt_file)
+    segmenter = RMBG2Cutout(
+        args.rmbg_model_id, args.rmbg_revision, args.rmbg_device, args.rmbg_input_size
+    )
+    try:
+        cutouts = generate_rmbg_cutouts(segmenter, references, args, out)
+    finally:
+        segmenter.close()
     controller = SelfLocalizingVLKV(pipe, args)
     controller.install()
     summary = []
     try:
         for case in tqdm(cases, desc="E11 self-localizing VL-KV suite", unit="case"):
-            summary.append(run_case(pipe, controller, case, references, args, out))
+            summary.append(run_case(pipe, controller, case, references, cutouts, args, out))
             save_json(summary, out / "summary.partial.json")
     finally:
         controller.close()
     save_json({
         "method": "asymmetric VL/VAE plus provenance-aware self-localizing VL-KV logit routing",
         "vl_images": ["current scene", "reference object"], "vae_images": ["current scene"],
+        "placement": "native Qwen placeholder difference prior",
+        "reference_cleanup": "RMBG-2.0 alpha-filtered VL tokens",
         "external_mask": None, "postprocess": None, "cases": summary,
     }, out / "summary.json")
     print(f"Done: {out}")
