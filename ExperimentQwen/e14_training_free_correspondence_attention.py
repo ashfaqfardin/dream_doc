@@ -159,7 +159,7 @@ class CorrespondenceProcessor:
         query = iq[:, x_slice]
         similarity = torch.einsum("bqhd,bkhd->bhqk", query.float(), selected_k.float())
         similarity = similarity.mean(dim=1) / math.sqrt(head_dim)
-        position = ctl.position_prior(output_tokens, selected, query.device)
+        position, query_gate = ctl.position_prior(output_tokens, selected, query.device)
         if ctl.variant == "difference":
             token_prior = normalize_prior(delta.index_select(0, selected).unsqueeze(0))
             prior = token_prior.expand(output_tokens, -1)
@@ -172,6 +172,12 @@ class CorrespondenceProcessor:
             )
         else:
             prior = torch.zeros_like(similarity)
+        # Crucially retain absolute target distance. Row-normalizing a
+        # positional matrix alone gives every background query a preferred
+        # object token; Sinkhorn then spreads object evidence over the whole
+        # canvas. This broad Gaussian is soft (not an output mask), but drives
+        # the intervention continuously to zero away from the placement.
+        prior = prior * query_gate[:, None]
         bias[:, :, :, selected_columns] += (strength * prior).unsqueeze(1).to(bias.dtype)
         routed_x = attend(query, routed_k, routed_v, bias)
 
@@ -249,7 +255,11 @@ class TrainingFreeCorrespondenceRouter:
         k = coords.index_select(0, selected)[None, :, :]
         squared = (q - k).square().sum(dim=-1)
         prior = -squared / (2.0 * self.args.position_sigma ** 2)
-        return normalize_prior(prior)
+        nearest_squared = squared.amin(dim=-1)
+        query_gate = torch.exp(
+            -nearest_squared / (2.0 * self.args.query_gate_sigma ** 2)
+        )
+        return normalize_prior(prior), query_gate
 
     def record(self, layer, selected, delta, prior, strength, tokens):
         with torch.no_grad():
@@ -404,7 +414,7 @@ def parse_args():
     p.add_argument("--missing_policy", choices=("skip", "error"), default="skip")
     p.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--variants", nargs="+", choices=VARIANTS, default=list(VARIANTS))
-    p.add_argument("--selected_variant", choices=VARIANTS, default="sinkhorn")
+    p.add_argument("--selected_variant", choices=VARIANTS, default="correlation")
     p.add_argument("--model_id", default="Qwen/Qwen-Image-Edit-2509")
     p.add_argument("--lightning_repo", default="lightx2v/Qwen-Image-Lightning")
     p.add_argument("--lightning_weight", default="Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors")
@@ -436,6 +446,7 @@ def parse_args():
     p.add_argument("--routing_strength", type=float, default=.15)
     p.add_argument("--position_weight", type=float, default=.35)
     p.add_argument("--position_sigma", type=float, default=.18)
+    p.add_argument("--query_gate_sigma", type=float, default=.22, help="Soft absolute-distance envelope around selected collage evidence")
     p.add_argument("--sinkhorn_iterations", type=int, default=5)
     p.add_argument("--sinkhorn_temperature", type=float, default=.20)
     p.add_argument("--evaluation", action=argparse.BooleanOptionalAction, default=True)
@@ -454,7 +465,7 @@ def main():
         raise ValueError("--selected_variant must be present in --variants")
     if not 0 < args.reference_token_fraction <= 1:
         raise ValueError("reference_token_fraction must be in (0,1]")
-    if args.routing_strength < 0 or args.position_sigma <= 0:
+    if args.routing_strength < 0 or args.position_sigma <= 0 or args.query_gate_sigma <= 0:
         raise ValueError("Invalid routing strength or positional sigma")
     if args.sinkhorn_iterations < 1 or args.sinkhorn_temperature <= 0:
         raise ValueError("Invalid Sinkhorn configuration")
