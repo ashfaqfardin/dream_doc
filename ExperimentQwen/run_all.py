@@ -65,6 +65,7 @@ EXPERIMENTS = [
     {"id":"e9","name":"Placeholder Geometry + Semantic Matched-Value Appearance Transfer","script":HERE/"e9_placeholder_then_semantic_value_matching.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e9_semantic_value_matching")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
     {"id":"e10","name":"Asymmetric VL/VAE Reference Conditioning","script":HERE/"e10_asymmetric_vl_vae_conditioning.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e10_asymmetric_vl_vae")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
     {"id":"e11","name":"Self-Localizing VL Reference K/V Injection","script":HERE/"e11_self_localizing_vl_kv_injection.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e11_self_localizing_vl_kv")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
+    {"id":"e12","name":"Single-Image Spatial Reference Card Insertion","script":HERE/"e12_spatial_reference_card_insertion.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e12_spatial_reference_card")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -110,6 +111,11 @@ def parse_args():
     parser.add_argument("--e11_identity_scale", type=float, default=1.35, help="E11 reference-delta CFG strength")
     parser.add_argument("--e11_injection_layers", default="middle", help="E11 VL-reference K/V layers")
     parser.add_argument("--e11_reference_boost", type=float, default=1.5, help="E11 maximum reference-token logit bias")
+    parser.add_argument("--e12_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E12")
+    parser.add_argument("--e12_max_objects", type=int, choices=(1, 2, 3), help="Limit objects per E12 case")
+    parser.add_argument("--e12_reference_ratio", type=float, default=.12, help="E12 stitched reference-card area ratio")
+    parser.add_argument("--e12_card_background", choices=("gray", "scene_blur"), default="gray", help="E12 reference-card background")
+    parser.add_argument("--e12_metric_device", default="cpu", help="Device for E12 DINOv2 evaluation")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -283,6 +289,16 @@ def main():
                 command.extend(["--case_ids", *map(str, args.e11_case_ids)])
             if args.e11_max_objects is not None:
                 command.extend(["--max_objects", str(args.e11_max_objects)])
+        if experiment["id"] == "e12":
+            command.extend([
+                "--reference_area_ratio", str(args.e12_reference_ratio),
+                "--card_background", args.e12_card_background,
+                "--metric_device", args.e12_metric_device,
+            ])
+            if args.e12_case_ids:
+                command.extend(["--case_ids", *map(str, args.e12_case_ids)])
+            if args.e12_max_objects is not None:
+                command.extend(["--max_objects", str(args.e12_max_objects)])
         started = time.perf_counter()
         result = subprocess.run(command, cwd=str(ROOT), env=os.environ.copy())
         elapsed = format_duration(time.perf_counter() - started)
