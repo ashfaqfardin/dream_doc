@@ -138,9 +138,13 @@ class CorrespondenceProcessor:
             hidden_states[:, b_slice], hidden_states[:, c_slice], self.layer_index
         )
         selected_k = ik[:, c_slice].index_select(1, selected)
-        selected_v = iv[:, c_slice].index_select(1, selected)
-        routed_k = torch.cat([tk, ik[:, x_slice], ik[:, b_slice], selected_k], dim=1)
-        routed_v = torch.cat([tv, iv[:, x_slice], iv[:, b_slice], selected_v], dim=1)
+        # Preserve Qwen's complete native T/X/B/C context. Earlier E14 code
+        # removed all non-selected C tokens from X attention; that discarded
+        # the primary scene-reconstruction stream and could collapse output to
+        # the selected object on its reference background. E14 now changes
+        # logits only--never the native set or ordering of K/V tokens.
+        routed_k = joint_k
+        routed_v = joint_v
         key_count = routed_k.shape[1]
         bias = torch.zeros(
             (hidden_states.shape[0], 1, output_tokens, key_count),
@@ -151,12 +155,15 @@ class CorrespondenceProcessor:
             bias[:, :, :, :text_tokens].masked_fill_(invalid, -torch.inf)
 
         strength = ctl.strength()
-        selected_start = text_tokens + 2 * output_tokens
+        selected_columns = text_tokens + 2 * output_tokens + selected
         query = iq[:, x_slice]
         similarity = torch.einsum("bqhd,bkhd->bhqk", query.float(), selected_k.float())
         similarity = similarity.mean(dim=1) / math.sqrt(head_dim)
         position = ctl.position_prior(output_tokens, selected, query.device)
-        if ctl.variant == "correlation":
+        if ctl.variant == "difference":
+            token_prior = normalize_prior(delta.index_select(0, selected).unsqueeze(0))
+            prior = token_prior.expand(output_tokens, -1)
+        elif ctl.variant == "correlation":
             prior = normalize_prior(similarity) + ctl.args.position_weight * position
         elif ctl.variant == "sinkhorn":
             transport_scores = similarity + ctl.args.position_weight * position
@@ -165,7 +172,7 @@ class CorrespondenceProcessor:
             )
         else:
             prior = torch.zeros_like(similarity)
-        bias[:, :, :, selected_start:] += (strength * prior).unsqueeze(1).to(bias.dtype)
+        bias[:, :, :, selected_columns] += (strength * prior).unsqueeze(1).to(bias.dtype)
         routed_x = attend(query, routed_k, routed_v, bias)
 
         image_native = native[:, text_tokens:]
