@@ -1,8 +1,9 @@
 """E14: training-free paired-difference correspondence attention.
 
 For each insertion B is the current scene and C=B+O is an aligned rough
-collage. Qwen receives exactly [B, C]. In selected middle MMDiT blocks, aligned
-B/C feature differences select object-evidence tokens from C. Generated tokens
+collage. The native control receives C alone. Asymmetric variants expose only C
+to Qwen2.5-VL while the denoiser receives VAE banks [C, B]. In selected middle
+MMDiT blocks, aligned C/B feature differences select object-evidence tokens from C. Generated tokens
 then use Qwen's native projections and values with one of three routing rules:
 difference-only, correlation-biased, or Sinkhorn+position-biased attention.
 
@@ -32,7 +33,7 @@ from e12_spatial_reference_card_insertion import E12Evaluator
 
 
 HERE = Path(__file__).resolve().parent
-VARIANTS = ("native", "difference", "correlation", "sinkhorn")
+VARIANTS = ("native", "asymmetric", "difference", "correlation", "sinkhorn")
 
 
 def normalize_prior(values: torch.Tensor) -> torch.Tensor:
@@ -70,7 +71,7 @@ class CorrespondenceProcessor:
         image_rotary_emb=None, **kwargs,
     ):
         ctl = self.controller
-        if not ctl.active or ctl.variant == "native":
+        if not ctl.active or ctl.variant in ("native", "asymmetric"):
             return self.original(
                 attn, hidden_states, encoder_hidden_states,
                 encoder_hidden_states_mask, attention_mask, image_rotary_emb, **kwargs,
@@ -86,12 +87,12 @@ class CorrespondenceProcessor:
         output_tokens = (ctl.args.height // 16) * (ctl.args.width // 16)
         if image_tokens != 3 * output_tokens:
             raise RuntimeError(
-                f"Expected packed [X,B,C] with {3 * output_tokens} tokens, got {image_tokens}. "
+                f"Expected packed [X,C,B] with {3 * output_tokens} tokens, got {image_tokens}. "
                 "E14 requires square B and C at the output resolution."
             )
         x_slice = slice(0, output_tokens)
-        b_slice = slice(output_tokens, 2 * output_tokens)
-        c_slice = slice(2 * output_tokens, 3 * output_tokens)
+        c_slice = slice(output_tokens, 2 * output_tokens)
+        b_slice = slice(2 * output_tokens, 3 * output_tokens)
 
         iq, ik, iv = attn.to_q(hidden_states), attn.to_k(hidden_states), attn.to_v(hidden_states)
         tq = attn.add_q_proj(encoder_hidden_states)
@@ -138,7 +139,7 @@ class CorrespondenceProcessor:
             hidden_states[:, b_slice], hidden_states[:, c_slice], self.layer_index
         )
         selected_k = ik[:, c_slice].index_select(1, selected)
-        # Preserve Qwen's complete native T/X/B/C context. Earlier E14 code
+        # Preserve Qwen's complete native T/X/C/B context. Earlier E14 code
         # removed all non-selected C tokens from X attention; that discarded
         # the primary scene-reconstruction stream and could collapse output to
         # the selected object on its reference background. E14 now changes
@@ -155,7 +156,7 @@ class CorrespondenceProcessor:
             bias[:, :, :, :text_tokens].masked_fill_(invalid, -torch.inf)
 
         strength = ctl.strength()
-        selected_columns = text_tokens + 2 * output_tokens + selected
+        selected_columns = text_tokens + output_tokens + selected
         query = iq[:, x_slice]
         similarity = torch.einsum("bqhd,bkhd->bhqk", query.float(), selected_k.float())
         similarity = similarity.mean(dim=1) / math.sqrt(head_dim)
@@ -219,7 +220,7 @@ class TrainingFreeCorrespondenceRouter:
         if variant not in VARIANTS:
             raise ValueError(f"Unknown E14 variant: {variant}")
         self.variant = variant
-        self.active = variant != "native"
+        self.active = variant in ("difference", "correlation", "sinkhorn")
         self.calls = 0
         self.records = []
         self.heat_sum = None
@@ -286,7 +287,7 @@ class TrainingFreeCorrespondenceRouter:
         self.active = False
         cfg_passes = 2 if self.args.true_cfg_scale > 1 and self.args.negative_prompt is not None else 1
         expected = len(self.layers) * self.args.steps * cfg_passes
-        if self.variant != "native" and self.calls != expected:
+        if self.variant in ("difference", "correlation", "sinkhorn") and self.calls != expected:
             raise RuntimeError(f"E14 router ran {self.calls} times; expected {expected}")
         if heatmap_path is not None and self.heat_sum is not None:
             heat = (self.heat_sum / max(1, self.heat_count)).float().cpu().numpy()
@@ -311,22 +312,66 @@ class TrainingFreeCorrespondenceRouter:
 
 def insertion_prompt(name):
     return (
-        f"Image 1 is the original scene. Image 2 is an aligned rough composite containing one pasted {name}. "
-        f"Generate one photorealistic version of Image 2 by harmonizing that exact {name} naturally into Image 1. "
+        f"The input image is an aligned rough scene composite containing one pasted {name}. "
+        f"Return one photorealistic version of this complete scene by harmonizing that exact {name} naturally. "
         "Keep its intended position, complete structure, proportions, colors, materials, textures, and distinctive "
-        "details. Correct its boundary, perspective, illumination, support contact, and shadow while preserving "
-        "Image 1's camera, geometry, background, and existing objects. Return one scene only. Do not output an "
+        "details. Correct only its boundary, perspective, illumination, support contact, and shadow. Preserve the "
+        "scene's camera, geometry, background, and existing objects. Return one scene only. Do not output an "
         "isolated object, white background, reference board, collage, grid, split image, or duplicate object."
     )
+
+
+@torch.inference_mode()
+def infer_asymmetric(pipe, collage, base, prompt, args, seed):
+    """Expose C to VL semantics while providing aligned [C,B] VAE evidence."""
+    from diffusers.pipelines.qwenimage.pipeline_qwenimage_edit_plus import (
+        CONDITION_IMAGE_SIZE, calculate_dimensions,
+    )
+
+    condition_width, condition_height = calculate_dimensions(
+        CONDITION_IMAGE_SIZE, collage.width / collage.height
+    )
+    semantic_images = [pipe.image_processor.resize(collage, condition_height, condition_width)]
+    prompt_embeds, prompt_mask = pipe.encode_prompt(
+        prompt=prompt, image=semantic_images, device=pipe._execution_device,
+        num_images_per_prompt=1,
+    )
+    negative_embeds = negative_mask = None
+    if args.true_cfg_scale > 1.0 and args.negative_prompt is not None:
+        negative_embeds, negative_mask = pipe.encode_prompt(
+            prompt=args.negative_prompt, image=semantic_images,
+            device=pipe._execution_device, num_images_per_prompt=1,
+        )
+    result = pipe(
+        image=[collage, base],
+        prompt_embeds=prompt_embeds,
+        prompt_embeds_mask=prompt_mask,
+        negative_prompt_embeds=negative_embeds,
+        negative_prompt_embeds_mask=negative_mask,
+        true_cfg_scale=args.true_cfg_scale,
+        num_inference_steps=args.steps,
+        width=args.width,
+        height=args.height,
+        generator=make_generator(args.device, seed),
+    )
+    return result.images[0].convert("RGB")
 
 
 def run_variant(pipe, router, variant, base, collage, prompt, args, seed, heatmap_path):
     router.begin(variant)
     try:
-        image = infer(pipe, [base, collage], prompt, args, seed)
+        if variant == "native":
+            # True control: the successful rough collage is the only semantic
+            # and reconstructive condition. B cannot compete as another image.
+            image = infer(pipe, [collage], prompt, args, seed)
+        else:
+            # VL still sees C only. B exists solely as an aligned VAE bank.
+            image = infer_asymmetric(pipe, collage, base, prompt, args, seed)
     finally:
         router.active = False
-    diagnostics = router.end(heatmap_path if variant != "native" else None)
+    diagnostics = router.end(
+        heatmap_path if variant in ("difference", "correlation", "sinkhorn") else None
+    )
     return image, diagnostics
 
 
@@ -502,7 +547,11 @@ def main():
         segmenter.close()
     save_json({
         "method": "training-free aligned patch-difference and correspondence attention",
-        "training": False, "model_inputs": ["base", "aligned_collage"],
+        "training": False,
+        "conditioning": {
+            "native": {"vl": ["collage"], "vae": ["collage"]},
+            "asymmetric_and_routed": {"vl": ["collage"], "vae": ["collage", "base"]},
+        },
         "variants": args.variants, "selected_variant": args.selected_variant,
         "feature_addition": False, "kv_replacement": False,
         "latent_blending": False, "postprocess": None, "cases": summary,

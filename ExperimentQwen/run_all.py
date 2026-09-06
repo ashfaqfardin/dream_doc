@@ -125,8 +125,8 @@ def parse_args():
     parser.add_argument("--e13_metric_device", default="cpu", help="Device for E13 DINOv2 evaluation")
     parser.add_argument("--e14_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E14")
     parser.add_argument("--e14_max_objects", type=int, choices=(1, 2, 3), help="Limit objects per E14 case")
-    parser.add_argument("--e14_variants", nargs="+", choices=("native", "difference", "correlation", "sinkhorn"), default=["native", "difference", "correlation", "sinkhorn"], help="E14 matched attention ablations")
-    parser.add_argument("--e14_selected_variant", choices=("native", "difference", "correlation", "sinkhorn"), default="correlation", help="E14 variant propagated to the next object")
+    parser.add_argument("--e14_variants", nargs="+", choices=("native", "asymmetric", "difference", "correlation", "sinkhorn"), default=["native", "asymmetric", "difference", "correlation", "sinkhorn"], help="E14 matched conditioning and attention ablations")
+    parser.add_argument("--e14_selected_variant", choices=("native", "asymmetric", "difference", "correlation", "sinkhorn"), default="correlation", help="E14 variant propagated to the next object")
     parser.add_argument("--e14_no_resume", action="store_true", help="Regenerate E14 outputs")
     parser.add_argument("--e14_metric_device", default="cpu", help="Device for E14 DINOv2 evaluation")
     parser.add_argument(

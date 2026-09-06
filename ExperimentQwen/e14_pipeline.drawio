@@ -30,7 +30,7 @@
                 <mxCell id="collage" value="Aligned collage C = B + O&#xa;Known geometry; no postprocess mask" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15" parent="1" vertex="1">
                     <mxGeometry x="550" y="250" width="240" height="90" as="geometry"/>
                 </mxCell>
-                <mxCell id="inputs" value="Qwen native input&#xa;[Image 1: B, Image 2: C]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontStyle=1" parent="1" vertex="1">
+                <mxCell id="inputs" value="Asymmetric Qwen conditioning&#xa;VL semantics: C only&#xa;VAE banks: [C, B]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="850" y="250" width="230" height="90" as="geometry"/>
                 </mxCell>
                 <mxCell id="vae" value="Native VAE encode + 2×2 patch packing&#xa;H_B and H_C (unchanged pretrained patchifier)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14" parent="1" vertex="1">
@@ -57,7 +57,7 @@
                 <mxCell id="output" value="Single decoded output&#xa;No latent blending&#xa;No second pass or pixel postprocessing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="900" y="770" width="270" height="100" as="geometry"/>
                 </mxCell>
-                <mxCell id="ablations" value="Matched ablations&#xa;1 Native  2 Difference  3 Correlation  4 Sinkhorn+Position&#xa;Same B, C, prompt, placement, seed and noise" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14" parent="1" vertex="1">
+                <mxCell id="ablations" value="Matched ablations&#xa;1 C-only native  2 Asymmetric C/B&#xa;3 Difference  4 Correlation  5 Sinkhorn+Position&#xa;Same collage, prompt, placement, seed and noise" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14" parent="1" vertex="1">
                     <mxGeometry x="1220" y="560" width="300" height="120" as="geometry"/>
                 </mxCell>
                 <mxCell id="metrics" value="Outputs + diagnostics&#xa;DINO identity • color similarity&#xa;background MAE/PSNR • change fraction&#xa;entropy • token coverage • attention maps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14" parent="1" vertex="1">
