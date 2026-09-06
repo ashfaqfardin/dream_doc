@@ -116,6 +116,7 @@ def parse_args():
     parser.add_argument("--e12_reference_ratio", type=float, default=.12, help="E12 stitched reference-card area ratio")
     parser.add_argument("--e12_card_background", choices=("gray", "scene_blur"), default="gray", help="E12 reference-card background")
     parser.add_argument("--e12_metric_device", default="cpu", help="Device for E12 DINOv2 evaluation")
+    parser.add_argument("--e12_no_resume", action="store_true", help="Regenerate E12 outputs instead of reusing prior results")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -295,6 +296,8 @@ def main():
                 "--card_background", args.e12_card_background,
                 "--metric_device", args.e12_metric_device,
             ])
+            if args.e12_no_resume:
+                command.append("--no-resume")
             if args.e12_case_ids:
                 command.extend(["--case_ids", *map(str, args.e12_case_ids)])
             if args.e12_max_objects is not None:

@@ -374,8 +374,14 @@ def parse_args():
     parser.add_argument("--steps", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--object_seed", type=int, default=1337)
-    parser.add_argument("--true_cfg_scale", type=float, default=1.0)
-    parser.add_argument("--negative_prompt", default=" ")
+    parser.add_argument(
+        "--true_cfg_scale", type=float, default=4.0,
+        help="Traditional classifier-free guidance scale; values above 1 enable CFG",
+    )
+    parser.add_argument(
+        "--negative_prompt", default="",
+        help="Empty string intentionally enables an unconditional CFG branch",
+    )
     parser.add_argument("--rmbg_model_id", default="briaai/RMBG-2.0")
     parser.add_argument("--rmbg_revision", default="54c725d3b17ca83aba490092de8acf6118b8bb06")
     parser.add_argument("--rmbg_device", default="cuda")
