@@ -1,0 +1,123 @@
+<mxfile host="65bd71144e">
+    <diagram id="6TUk7EFVIY85-i-BQ1n0" name="Page-1">
+        <mxGraphModel dx="54" dy="11" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="e14-pipeline" name="E14 Training-Free Pipeline">
+        <mxGraphModel dx="738" dy="387" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="1" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="E14: Training-Free Paired-Difference Correspondence Attention" style="text;html=1;align=center;verticalAlign=middle;fontSize=24;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="300" y="20" width="900" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="ref" value="Reference object image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15" parent="1" vertex="1">
+                    <mxGeometry x="40" y="130" width="190" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="rmbg" value="RMBG-2.0&#xa;clean cutout + alpha" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=15" parent="1" vertex="1">
+                    <mxGeometry x="280" y="130" width="190" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="base" value="Base image B" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15" parent="1" vertex="1">
+                    <mxGeometry x="40" y="280" width="190" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="place" value="Counterfactual placement&#xa;position + scale; reject borders" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14" parent="1" vertex="1">
+                    <mxGeometry x="280" y="260" width="220" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="collage" value="Aligned collage C = B + O&#xa;Known geometry; no postprocess mask" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15" parent="1" vertex="1">
+                    <mxGeometry x="550" y="250" width="240" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="inputs" value="Qwen native input&#xa;[Image 1: B, Image 2: C]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="850" y="250" width="230" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="vae" value="Native VAE encode + 2×2 patch packing&#xa;H_B and H_C (unchanged pretrained patchifier)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14" parent="1" vertex="1">
+                    <mxGeometry x="850" y="400" width="280" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="difference" value="Aligned patch difference&#xa;d_i = 1 − cos(LN(H_Bi), LN(H_Ci))&#xa;Top changed C tokens = object evidence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14" parent="1" vertex="1">
+                    <mxGeometry x="480" y="420" width="300" height="105" as="geometry"/>
+                </mxCell>
+                <mxCell id="mmdit" value="Frozen Qwen MMDiT&#xa;Native RoPE, Q/K/V, and values&#xa;Intervention only in middle blocks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="850" y="580" width="280" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="corr" value="Output ↔ evidence correlation&#xa;S_qi = cos(Q_Xq, K_Ci)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14" parent="1" vertex="1">
+                    <mxGeometry x="250" y="580" width="230" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="pos" value="Soft relative-position prior&#xa;Broad Gaussian; no hard output mask" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14" parent="1" vertex="1">
+                    <mxGeometry x="250" y="700" width="230" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="sink" value="Optional Sinkhorn normalization&#xa;Balanced correspondence prior" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=14" parent="1" vertex="1">
+                    <mxGeometry x="550" y="625" width="240" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="bias" value="Training-free attention-logit bias&#xa;softmax(QKᵀ/√d + λR)V&#xa;No K/V replacement or feature addition" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="550" y="755" width="280" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="output" value="Single decoded output&#xa;No latent blending&#xa;No second pass or pixel postprocessing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="900" y="770" width="270" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="ablations" value="Matched ablations&#xa;1 Native  2 Difference  3 Correlation  4 Sinkhorn+Position&#xa;Same B, C, prompt, placement, seed and noise" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14" parent="1" vertex="1">
+                    <mxGeometry x="1220" y="560" width="300" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="metrics" value="Outputs + diagnostics&#xa;DINO identity • color similarity&#xa;background MAE/PSNR • change fraction&#xa;entropy • token coverage • attention maps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14" parent="1" vertex="1">
+                    <mxGeometry x="1220" y="750" width="300" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="ref" target="rmbg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="rmbg" target="place" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="base" target="place" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="place" target="collage" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="base" target="collage" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="collage" target="inputs" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="inputs" target="vae" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="vae" target="difference" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="vae" target="mmdit" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="difference" target="corr" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="corr" target="sink" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="pos" target="sink" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="sink" target="bias" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="bias" target="mmdit" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="mmdit" target="output" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="mmdit" target="ablations" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="ablations" target="metrics" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block" parent="1" source="output" target="metrics" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
