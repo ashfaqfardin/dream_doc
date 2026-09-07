@@ -68,6 +68,7 @@ EXPERIMENTS = [
     {"id":"e12","name":"Single-Image Spatial Reference Card Insertion","script":HERE/"e12_spatial_reference_card_insertion.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e12_spatial_reference_card")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
     {"id":"e13","name":"Two-Image Timestep-Aligned Masked Latent Blending","script":HERE/"e13_masked_latent_blending.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e13_masked_latent_blending")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
     {"id":"e14","name":"Training-Free Paired-Difference Correspondence Attention","script":HERE/"e14_training_free_correspondence_attention.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e14_training_free_correspondence")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
+    {"id":"e15","name":"Native Broad-Mask Collage Inpainting","script":HERE/"e15_native_broad_mask_collage_inpaint.py","args":["--prompts",str(HERE/"e5_prompts.json"),"--out_dir",str(ROOT/"results"/"qwen_e15_native_broad_mask_inpaint")],"requires":[HERE/"e5_prompts.json",HERE/"object_canny"]},
 ]
 
 
@@ -129,6 +130,12 @@ def parse_args():
     parser.add_argument("--e14_selected_variant", choices=("native", "asymmetric", "difference", "correlation", "sinkhorn"), default="correlation", help="E14 variant propagated to the next object")
     parser.add_argument("--e14_no_resume", action="store_true", help="Regenerate E14 outputs")
     parser.add_argument("--e14_metric_device", default="cpu", help="Device for E14 DINOv2 evaluation")
+    parser.add_argument("--e15_case_ids", type=int, nargs="+", help="Subset of prompt-suite cases for E15")
+    parser.add_argument("--e15_max_objects", type=int, choices=(1, 2, 3), help="Limit objects per E15 case")
+    parser.add_argument("--e15_mask_margins", type=float, nargs="+", default=[.10, .20, .30], help="E15 broad-mask margin ablations")
+    parser.add_argument("--e15_selected_margin", type=float, default=.20, help="E15 margin propagated to the next object")
+    parser.add_argument("--e15_no_resume", action="store_true", help="Regenerate E15 outputs")
+    parser.add_argument("--e15_metric_device", default="cpu", help="Device for E15 DINOv2 evaluation")
     parser.add_argument(
         "--e1_dir", type=Path,
         help="Existing E1 output directory for E2. If omitted, common output locations are detected.",
@@ -334,6 +341,18 @@ def main():
                 command.extend(["--case_ids", *map(str, args.e14_case_ids)])
             if args.e14_max_objects is not None:
                 command.extend(["--max_objects", str(args.e14_max_objects)])
+        if experiment["id"] == "e15":
+            command.extend([
+                "--mask_margins", *map(str, args.e15_mask_margins),
+                "--selected_margin", str(args.e15_selected_margin),
+                "--metric_device", args.e15_metric_device,
+            ])
+            if args.e15_no_resume:
+                command.append("--no-resume")
+            if args.e15_case_ids:
+                command.extend(["--case_ids", *map(str, args.e15_case_ids)])
+            if args.e15_max_objects is not None:
+                command.extend(["--max_objects", str(args.e15_max_objects)])
         started = time.perf_counter()
         result = subprocess.run(command, cwd=str(ROOT), env=os.environ.copy())
         elapsed = format_duration(time.perf_counter() - started)

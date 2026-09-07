@@ -155,6 +155,39 @@ not boundary-compatible, so their spatial blend decoded into seams and white
 structures. E13 demonstrates that hard latent ownership conflicts with the
 geometric freedom required for natural harmonization.
 
+======== E14 failure ========
+
+The training-free paired-difference correspondence experiment failed by
+collapsing the complete scene into the reference sofa on a white background.
+The input collage itself was correct: it contained both the original room and
+the placed sofa. The placement/correspondence heatmap also highlighted a
+reasonable sofa region, but this localization did not translate into a valid
+edited output. The native control, correlation variant, and propagated
+`FINAL.png` all exhibited the same full-frame reference reconstruction.
+
+Because the native control failed without the custom correspondence router, the
+primary failure was not caused by Sinkhorn or correlation strength. Passing the
+base and collage as simultaneous semantic images caused conditioning-role
+ambiguity: Qwen treated the object/reference evidence as the generation target
+instead of treating the room as the persistent output canvas. The change
+heatmap activated across almost the entire scene, confirming global replacement
+rather than a localized edit.
+
+E14 was revised so that the native control received only collage `C`, while the
+asymmetric variants exposed only `C` to Qwen2.5-VL and supplied VAE banks
+`[C, B]`. This still produced the isolated sofa result. Therefore, separating
+the VL and VAE paths at inference time did not recreate the binding learned for
+a localized edit. Feature-difference localization can identify where `B` and
+`C` differ, but it cannot force the pretrained denoiser to preserve `B` while
+rendering the selected identity.
+
+Conclusion: E14 demonstrates that accurate attention localization is not
+sufficient for controlled object insertion. A correct heatmap is only a
+diagnostic; it does not guarantee causal, spatially restricted generation.
+Training-free attention-logit routing could not overcome the model's native
+full-frame conditioning collapse, and increasing the object bias would likely
+strengthen that failure.
+
 ======== Overall conclusion ========
 
 The repeated failure is not simply insufficient reference strength. Stronger
