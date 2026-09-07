@@ -10,6 +10,8 @@ import argparse
 import json
 import math
 import random
+import warnings
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import numpy as np
@@ -81,6 +83,49 @@ def lightning_scheduler():
     )
 
 
+def prepare_peft_lora_backend() -> None:
+    """Ignore an obsolete optional TorchAO backend for this bf16 LoRA.
+
+    PEFT probes its TorchAO LoRA dispatcher whenever torchao is installed. Old
+    Colab images can contain torchao 0.10.0, whose availability check raises
+    before PEFT reaches its ordinary torch.nn.Linear dispatcher. This pipeline
+    is bf16 and not TorchAO-quantized, so disabling only that optional probe is
+    the correct fallback.
+    """
+    try:
+        installed = version("torchao")
+    except PackageNotFoundError:
+        return
+
+    try:
+        from packaging.version import Version
+
+        incompatible = Version(installed) <= Version("0.16.0")
+    except Exception:
+        incompatible = installed.startswith(("0.0", "0.1"))
+
+    if not incompatible:
+        return
+
+    try:
+        from peft import import_utils as peft_import_utils
+        from peft.tuners.lora import torchao as peft_torchao
+
+        # PEFT versions call one or both of these module-local symbols.
+        peft_import_utils.is_torchao_available = lambda: False
+        peft_torchao.is_torchao_available = lambda: False
+        warnings.warn(
+            f"torchao {installed} is incompatible with PEFT LoRA loading; "
+            "disabled the optional TorchAO dispatcher for this bf16 pipeline.",
+            stacklevel=2,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            f"Installed torchao {installed} is incompatible with PEFT. "
+            "Run `pip uninstall -y torchao` or install torchao>0.16.0, then retry."
+        ) from exc
+
+
 def load_pipeline(args):
     from diffusers import QwenImageEditPlusPipeline
 
@@ -92,6 +137,7 @@ def load_pipeline(args):
     )
     loading.update()
     loading.set_description("Loading 8-step Lightning LoRA")
+    prepare_peft_lora_backend()
     pipe.load_lora_weights(
         args.lightning_repo,
         weight_name=args.lightning_weight,
