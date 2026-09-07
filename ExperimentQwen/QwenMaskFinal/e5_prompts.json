@@ -2,7 +2,7 @@
   "prompts": [
     {
       "id": 1,
-      "base_prompt": "Create a photorealistic empty modern living room with warm neutral walls, wooden floor, natural daylight, realistic perspective, and several physically plausible open areas for furniture and objects. Keep the room uncluttered and completely empty.",
+      "base_prompt": "Create a photorealistic empty living room.",
       "objects": [
         {"name": "couch", "obj_prompt": "Convert this sketch into a photorealistic couch.", "canny_file": "ExperimentQwen/object_canny/couch.png"},
         {"name": "floor lamp", "obj_prompt": "Convert this sketch into a photorealistic floor lamp.", "canny_file": "ExperimentQwen/object_canny/floor_lamp.png"},
@@ -11,7 +11,7 @@
     },
     {
       "id": 2,
-      "base_prompt": "Create a photorealistic empty modern kitchen with plain cabinets, clean countertops, tiled backsplash, soft daylight from a window, realistic perspective, and clear uncluttered surfaces. Keep the kitchen completely empty.",
+      "base_prompt": "Create a photorealistic empty kitchen.",
       "objects": [
         {"name": "toaster", "obj_prompt": "Convert this sketch into a photorealistic toaster.", "canny_file": "ExperimentQwen/object_canny/toaster.png"},
         {"name": "microwave", "obj_prompt": "Convert this sketch into a photorealistic microwave.", "canny_file": "ExperimentQwen/object_canny/microwave.png"},
@@ -20,7 +20,7 @@
     },
     {
       "id": 3,
-      "base_prompt": "Create a photorealistic empty home office with a plain desk surface, neutral walls, wooden floor, soft window light, realistic perspective, and clear open areas. Keep the room completely empty of accessories.",
+      "base_prompt": "Create a photorealistic empty home office.",
       "objects": [
         {"name": "laptop", "obj_prompt": "Convert this sketch into a photorealistic laptop.", "canny_file": "ExperimentQwen/object_canny/laptop.png"},
         {"name": "clock", "obj_prompt": "Convert this sketch into a photorealistic clock.", "canny_file": "ExperimentQwen/object_canny/clock.png"},
@@ -29,7 +29,7 @@
     },
     {
       "id": 4,
-      "base_prompt": "Create a photorealistic empty bedroom with soft neutral walls, carpeted floor, gentle morning light through a window, realistic perspective, and plausible open floor space. Keep the room completely empty.",
+      "base_prompt": "Create a photorealistic empty bedroom.",
       "objects": [
         {"name": "bed", "obj_prompt": "Convert this sketch into a photorealistic bed.", "canny_file": "ExperimentQwen/object_canny/bed.png"},
         {"name": "dresser", "obj_prompt": "Convert this sketch into a photorealistic dresser.", "canny_file": "ExperimentQwen/object_canny/dresser.png"},
@@ -38,7 +38,7 @@
     },
     {
       "id": 5,
-      "base_prompt": "Create a photorealistic empty wooden dining table in a bright room, top-down and slightly angled view, natural daylight, realistic textures and shadows. Keep the tabletop completely bare.",
+      "base_prompt": "Create a photorealistic empty dining room.",
       "objects": [
         {"name": "teapot", "obj_prompt": "Convert this sketch into a photorealistic teapot.", "canny_file": "ExperimentQwen/object_canny/teapot.png"},
         {"name": "vase", "obj_prompt": "Convert this sketch into a photorealistic vase.", "canny_file": "ExperimentQwen/object_canny/vase.png"},
@@ -47,7 +47,7 @@
     },
     {
       "id": 6,
-      "base_prompt": "Create a photorealistic empty bathroom with light tiled walls, a clean vanity counter, a mirror, soft diffused lighting, realistic perspective, and no items on any surface.",
+      "base_prompt": "Create a photorealistic empty bathroom.",
       "objects": [
         {"name": "toothbrush", "obj_prompt": "Convert this sketch into a photorealistic toothbrush.", "canny_file": "ExperimentQwen/object_canny/toothbrush.png"},
         {"name": "bucket", "obj_prompt": "Convert this sketch into a photorealistic bucket.", "canny_file": "ExperimentQwen/object_canny/bucket.png"},
@@ -56,7 +56,7 @@
     },
     {
       "id": 7,
-      "base_prompt": "Create a photorealistic empty garage interior with concrete floor, plain walls, overhead lighting, realistic perspective, and large clear open areas. Keep the space completely empty.",
+      "base_prompt": "Create a photorealistic empty garage.",
       "objects": [
         {"name": "bicycle", "obj_prompt": "Convert this sketch into a photorealistic bicycle.", "canny_file": "ExperimentQwen/object_canny/bicycle.png"},
         {"name": "ladder", "obj_prompt": "Convert this sketch into a photorealistic ladder.", "canny_file": "ExperimentQwen/object_canny/ladder.png"},
@@ -65,7 +65,7 @@
     },
     {
       "id": 8,
-      "base_prompt": "Create a photorealistic empty backyard garden with mown grass, a paved patio area, a fence in the background, bright afternoon sunlight, and realistic perspective. Keep the yard completely empty.",
+      "base_prompt": "Create a photorealistic empty backyard.",
       "objects": [
         {"name": "chair", "obj_prompt": "Convert this sketch into a photorealistic chair.", "canny_file": "ExperimentQwen/object_canny/chair.png"},
         {"name": "table", "obj_prompt": "Convert this sketch into a photorealistic table.", "canny_file": "ExperimentQwen/object_canny/table.png"},
@@ -74,7 +74,7 @@
     },
     {
       "id": 9,
-      "base_prompt": "Create a photorealistic empty retail storefront interior with white walls, polished floor, recessed ceiling lights, realistic perspective, and clear open floor space. Keep the store completely empty.",
+      "base_prompt": "Create a photorealistic empty retail store.",
       "objects": [
         {"name": "basket", "obj_prompt": "Convert this sketch into a photorealistic basket.", "canny_file": "ExperimentQwen/object_canny/basket.png"},
         {"name": "table", "obj_prompt": "Convert this sketch into a photorealistic table.", "canny_file": "ExperimentQwen/object_canny/table.png"},
@@ -83,7 +83,7 @@
     },
     {
       "id": 10,
-      "base_prompt": "Create a photorealistic empty classroom with plain walls, tiled floor, large windows with daylight, a blank whiteboard, and realistic perspective. Keep the room completely empty.",
+      "base_prompt": "Create a photorealistic empty classroom.",
       "objects": [
         {"name": "book", "obj_prompt": "Convert this sketch into a photorealistic book.", "canny_file": "ExperimentQwen/object_canny/book.png"},
         {"name": "chair", "obj_prompt": "Convert this sketch into a photorealistic chair.", "canny_file": "ExperimentQwen/object_canny/chair.png"},
