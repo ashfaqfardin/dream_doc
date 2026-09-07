@@ -6,7 +6,7 @@
       "objects": [
         {"name": "couch", "obj_prompt": "Convert this sketch into a photorealistic couch.", "canny_file": "ExperimentQwen/object_canny/couch.png"},
         {"name": "floor lamp", "obj_prompt": "Convert this sketch into a photorealistic floor lamp.", "canny_file": "ExperimentQwen/object_canny/floor_lamp.png"},
-        {"name": "house plant", "obj_prompt": "Convert this sketch into a photorealistic house plant.", "canny_file": "ExperimentQwen/object_canny/potted_plant.png"}
+        {"name": "potted plant", "obj_prompt": "Convert this sketch into a photorealistic potted plant.", "canny_file": "ExperimentQwen/object_canny/potted_plant.png"}
       ]
     },
     {
@@ -51,7 +51,7 @@
       "objects": [
         {"name": "toothbrush", "obj_prompt": "Convert this sketch into a photorealistic toothbrush.", "canny_file": "ExperimentQwen/object_canny/toothbrush.png"},
         {"name": "bucket", "obj_prompt": "Convert this sketch into a photorealistic bucket.", "canny_file": "ExperimentQwen/object_canny/bucket.png"},
-        {"name": "house plant", "obj_prompt": "Convert this sketch into a photorealistic house plant.", "canny_file": "ExperimentQwen/object_canny/potted_plant.png"}
+        {"name": "potted plant", "obj_prompt": "Convert this sketch into a photorealistic potted plant.", "canny_file": "ExperimentQwen/object_canny/potted_plant.png"}
       ]
     },
     {
@@ -85,9 +85,9 @@
       "id": 10,
       "base_prompt": "Create a photorealistic empty classroom.",
       "objects": [
-        {"name": "book", "obj_prompt": "Convert this sketch into a photorealistic book.", "canny_file": "ExperimentQwen/object_canny/book.png"},
+        {"name": "table", "obj_prompt": "Convert this sketch into a photorealistic table.", "canny_file": "ExperimentQwen/object_canny/table.png"},
         {"name": "chair", "obj_prompt": "Convert this sketch into a photorealistic chair.", "canny_file": "ExperimentQwen/object_canny/chair.png"},
-        {"name": "table", "obj_prompt": "Convert this sketch into a photorealistic table.", "canny_file": "ExperimentQwen/object_canny/table.png"}
+        {"name": "book", "obj_prompt": "Convert this sketch into a photorealistic book.", "canny_file": "ExperimentQwen/object_canny/book.png"}
       ]
     }
   ]
