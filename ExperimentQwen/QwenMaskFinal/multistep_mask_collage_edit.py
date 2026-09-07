@@ -53,13 +53,38 @@ def load_cases(path: Path, requested: list[int] | None) -> list[dict]:
 
 def reference_path(item: dict, directory: Path) -> Path:
     canny_stem = Path(item.get("canny_file", "")).stem
-    exact = directory / f"{slug(item['name'])}__{slug(canny_stem)}.png"
+    object_slug = slug(item["name"])
+    source_slug = slug(canny_stem)
+    exact = directory / f"{object_slug}__{source_slug}.png"
     if exact.is_file():
         return exact
-    candidates = sorted(directory.glob(f"{slug(item['name'])}__*"))
-    if len(candidates) == 1:
-        return candidates[0]
-    raise FileNotFoundError(f"No unique reference image found for {item['name']!r} in {directory}")
+
+    # The descriptive name can change between prompt suites (for example,
+    # "house plant" versus "potted plant"), while the Canny filename remains
+    # the stable object identifier.
+    by_source = sorted(directory.glob(f"*__{source_slug}.*")) if source_slug else []
+    if len(by_source) == 1:
+        return by_source[0]
+
+    by_name = sorted(directory.glob(f"{object_slug}__*"))
+    if len(by_name) == 1:
+        return by_name[0]
+
+    # Final conservative fallback for repositories containing simple filenames.
+    simple = [
+        directory / f"{source_slug}.png",
+        directory / f"{object_slug}.png",
+    ]
+    existing = [path for path in simple if path.is_file()]
+    if len(existing) == 1:
+        return existing[0]
+
+    matches = sorted({*by_source, *by_name, *existing})
+    raise FileNotFoundError(
+        f"No unique reference image found for {item['name']!r} "
+        f"(Canny stem {canny_stem!r}) in {directory}. Matches: "
+        f"{[path.name for path in matches]}"
+    )
 
 
 def background_alpha(image: Image.Image, low: float, high: float) -> Image.Image:
