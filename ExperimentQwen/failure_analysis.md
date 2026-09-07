@@ -188,6 +188,26 @@ Training-free attention-logit routing could not overcome the model's native
 full-frame conditioning collapse, and increasing the object bias would likely
 strengthen that failure.
 
+======== E15 failure ========
+
+Native broad-mask collage inpainting preserved enough object evidence to form
+the requested object, but the object was not placed naturally in the scene.
+Its pose, scale, perspective, support/contact, or illumination did not agree
+with the surrounding geometry, so the result still appeared pasted or
+physically implausible.
+
+The broad inpaint mask gave Qwen room to redraw boundaries, but it did not
+provide the missing scene geometry. A 2D placement proposal plus an object
+cutout specifies *where* pixels may change, not the object's ground plane,
+depth, orientation, occlusion order, or contact relationship. Enlarging the
+mask further would add freedom while weakening background preservation;
+tightening it would constrain pose and cause clipping. Therefore this failure
+is not primarily a mask-width tuning problem.
+
+Conclusion: E15 confirms that native inpainting can improve local rendering,
+but it cannot recover physically plausible placement from an arbitrary 2D
+collage without an explicit geometry-aware placement condition.
+
 ======== Overall conclusion ========
 
 The repeated failure is not simply insufficient reference strength. Stronger
