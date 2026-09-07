@@ -1,12 +1,12 @@
-"""Localized, identity-locked multistep Qwen collage harmonization.
+"""Localized, frequency-guided multistep Qwen collage harmonization.
 
 Spatial ownership for each step:
-  * reference core: exact pixels from the placed object,
-  * boundary/contact halo: Qwen native inpainting output,
+  * object/interaction halo: Qwen native inpainting output,
+  * object identity: late masked reference-frequency latent residuals,
   * everything else: exact pixels from the previous scene.
 
-The user rectangle controls placement only. The cutout alpha controls editing
-and compositing; rectangular seams are never introduced.
+The user rectangle controls placement only. Qwen owns the complete object
+geometry and illumination; no RGB reference core is pasted back after editing.
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 from tqdm.auto import tqdm
 
@@ -81,10 +82,9 @@ def binary(mask: Image.Image, threshold: int) -> Image.Image:
 
 
 def build_ownership_masks(alpha: Image.Image, args) -> dict[str, Image.Image]:
-    """Create non-rectangular core, boundary, halo and native edit masks."""
+    """Create non-rectangular silhouette, interaction and native edit masks."""
 
     silhouette = binary(alpha, args.alpha_threshold)
-    core = silhouette.filter(ImageFilter.MinFilter(odd_size(args.core_erode_px)))
     dilated = silhouette.filter(ImageFilter.MaxFilter(odd_size(args.boundary_dilate_px)))
 
     shadow = Image.new("L", silhouette.size)
@@ -92,34 +92,175 @@ def build_ownership_masks(alpha: Image.Image, args) -> dict[str, Image.Image]:
     shadow = shadow.filter(ImageFilter.MaxFilter(odd_size(args.shadow_dilate_px)))
     interaction = ImageChops.lighter(dilated, shadow)
 
-    # The model edits the annulus and contact region, never the identity core.
-    edit = ImageChops.subtract(interaction, core)
+    # Qwen must own the full object to correct pose, perspective, and lighting.
+    edit = interaction
     return {
         "silhouette": silhouette,
-        "core": core,
         "interaction": interaction,
         "edit": edit,
     }
 
 
+class LocalizedFrequencyInjector:
+    """Inject timestep-matched reference frequency residuals in object tokens."""
+
+    def __init__(
+        self,
+        pipe,
+        reference_image: Image.Image,
+        object_mask: Image.Image,
+        args,
+        seed: int,
+    ):
+        self.args = args
+        self.device = pipe._execution_device
+        self.dtype = pipe.transformer.dtype
+        self.records: list[dict] = []
+
+        latent_h = 2 * (args.height // (pipe.vae_scale_factor * 2))
+        latent_w = 2 * (args.width // (pipe.vae_scale_factor * 2))
+        channels = pipe.transformer.config.in_channels // 4
+        generator = make_generator(args.device, seed)
+        noise_5d = torch.randn(
+            (1, 1, channels, latent_h, latent_w),
+            generator=generator,
+            device=self.device,
+            dtype=self.dtype,
+        )
+        self.noise = pipe._pack_latents(noise_5d, 1, channels, latent_h, latent_w)
+
+        image_tensor = pipe.image_processor.preprocess(
+            reference_image, args.height, args.width
+        ).unsqueeze(2).to(device=self.device, dtype=pipe.vae.dtype)
+        reference_5d = pipe._encode_vae_image(image_tensor, generator=generator).to(self.dtype)
+        reference_h, reference_w = reference_5d.shape[3:]
+        if (reference_h, reference_w) != (latent_h, latent_w):
+            raise RuntimeError(
+                f"Reference latent grid {(reference_h, reference_w)} does not match "
+                f"output grid {(latent_h, latent_w)}"
+            )
+        self.reference = pipe._pack_latents(
+            reference_5d, 1, channels, reference_h, reference_w
+        )
+
+        self.grid_h = latent_h // 2
+        self.grid_w = latent_w // 2
+        gate = np.asarray(
+            object_mask.convert("L").resize(
+                (self.grid_w, self.grid_h), Image.Resampling.LANCZOS
+            ),
+            dtype=np.float32,
+        ) / 255.0
+        gate = np.clip(gate, 0.0, 1.0)
+        self.gate = torch.from_numpy(gate.copy()).to(self.device, self.dtype)[None, None]
+        if self.grid_h * self.grid_w != self.reference.shape[1]:
+            raise RuntimeError(
+                f"Frequency gate has {self.grid_h * self.grid_w} tokens but "
+                f"reference latent has {self.reference.shape[1]}"
+            )
+
+    def _grid(self, packed: torch.Tensor) -> torch.Tensor:
+        batch, tokens, channels = packed.shape
+        if tokens != self.grid_h * self.grid_w:
+            raise RuntimeError(f"Unexpected latent token count: {tokens}")
+        return packed.reshape(batch, self.grid_h, self.grid_w, channels).permute(0, 3, 1, 2)
+
+    @staticmethod
+    def _packed(grid: torch.Tensor) -> torch.Tensor:
+        return grid.permute(0, 2, 3, 1).flatten(1, 2)
+
+    @staticmethod
+    def _lowpass(grid: torch.Tensor, kernel: int) -> torch.Tensor:
+        padding = kernel // 2
+        return F.avg_pool2d(grid, kernel_size=kernel, stride=1, padding=padding)
+
+    def strengths(self, fraction: float) -> tuple[float, float, str]:
+        if fraction < self.args.frequency_start:
+            return 0.0, 0.0, "geometry"
+        if fraction < self.args.frequency_late:
+            return self.args.mid_high_frequency, self.args.mid_low_frequency, "middle"
+        return self.args.late_high_frequency, self.args.late_low_frequency, "late"
+
+    @torch.no_grad()
+    def __call__(self, pipe, step_index, timestep, callback_kwargs):
+        latents = callback_kwargs["latents"]
+        fraction = (step_index + 1) / max(1, self.args.steps)
+        high_strength, low_strength, phase = self.strengths(fraction)
+        sigma_index = min(step_index + 1, len(pipe.scheduler.sigmas) - 1)
+        sigma = pipe.scheduler.sigmas[sigma_index].to(latents.device, latents.dtype)
+
+        if high_strength > 0 or low_strength > 0:
+            reference_at_sigma = (1.0 - sigma) * self.reference + sigma * self.noise
+            current_grid = self._grid(latents)
+            reference_grid = self._grid(reference_at_sigma)
+
+            current_detail = current_grid - self._lowpass(
+                current_grid, self.args.high_frequency_kernel
+            )
+            reference_detail = reference_grid - self._lowpass(
+                reference_grid, self.args.high_frequency_kernel
+            )
+            current_low = self._lowpass(current_grid, self.args.low_frequency_kernel)
+            reference_low = self._lowpass(reference_grid, self.args.low_frequency_kernel)
+            residual = (
+                high_strength * (reference_detail - current_detail)
+                + low_strength * (reference_low - current_low)
+            )
+            guided_grid = current_grid + self.gate * residual
+            latents = self._packed(guided_grid)
+
+        self.records.append(
+            {
+                "step": int(step_index),
+                "phase": phase,
+                "sigma": float(sigma),
+                "high_frequency_strength": float(high_strength),
+                "low_frequency_strength": float(low_strength),
+            }
+        )
+        return {"latents": latents}
+
+    def close(self) -> None:
+        self.noise = self.noise.cpu()
+        self.reference = self.reference.cpu()
+        self.gate = self.gate.cpu()
+
+
 @torch.inference_mode()
-def qwen_local_inpaint(pipe, collage: Image.Image, edit_mask: Image.Image, name: str, args) -> Image.Image:
-    prompt = f"Naturally integrate the pasted {name}. Preserve its identity and the unmasked scene."
-    cfg_enabled = args.true_cfg_scale > 1.0
-    result = pipe(
-        image=collage,
-        mask_image=edit_mask,
-        prompt=prompt,
-        negative_prompt=args.negative_prompt if cfg_enabled else None,
-        true_cfg_scale=args.true_cfg_scale,
-        strength=args.inpaint_strength,
-        num_inference_steps=args.steps,
-        width=args.width,
-        height=args.height,
-        padding_mask_crop=None,
-        generator=make_generator(args.device, args.seed),
+def qwen_local_inpaint(
+    pipe,
+    collage: Image.Image,
+    edit_mask: Image.Image,
+    identity_mask: Image.Image,
+    name: str,
+    args,
+) -> tuple[Image.Image, list[dict]]:
+    prompt = (
+        f"Integrate the pasted {name} naturally with the scene's perspective, lighting and contact. "
+        "Preserve its design, colors and position. Change nothing outside the mask."
     )
-    return result.images[0].convert("RGB")
+    cfg_enabled = args.true_cfg_scale > 1.0
+    injector = LocalizedFrequencyInjector(pipe, collage, identity_mask, args, args.seed)
+    try:
+        result = pipe(
+            image=collage,
+            mask_image=edit_mask,
+            prompt=prompt,
+            negative_prompt=args.negative_prompt if cfg_enabled else None,
+            true_cfg_scale=args.true_cfg_scale,
+            strength=args.inpaint_strength,
+            num_inference_steps=args.steps,
+            width=args.width,
+            height=args.height,
+            padding_mask_crop=None,
+            generator=make_generator(args.device, args.seed),
+            latents=injector.noise,
+            callback_on_step_end=injector,
+            callback_on_step_end_tensor_inputs=["latents"],
+        )
+        return result.images[0].convert("RGB"), injector.records
+    finally:
+        injector.close()
 
 
 def inside_feather(mask: Image.Image, radius: float) -> Image.Image:
@@ -136,25 +277,14 @@ def inside_feather(mask: Image.Image, radius: float) -> Image.Image:
 def compose_owned_output(
     before: Image.Image,
     qwen: Image.Image,
-    object_canvas: Image.Image,
-    paste_alpha: Image.Image,
     masks: dict[str, Image.Image],
     args,
-) -> tuple[Image.Image, Image.Image, Image.Image]:
-    """Enforce background and reference ownership in RGB space."""
+) -> tuple[Image.Image, Image.Image]:
+    """Guarantee previous-image ownership outside the interaction region."""
 
     outer_weight = inside_feather(masks["interaction"], args.outer_feather_px)
-    localized = Image.composite(qwen, before, outer_weight)
-
-    alpha_array = np.asarray(paste_alpha, dtype=np.float32) / 255.0
-    core_blur = np.asarray(
-        masks["core"].filter(ImageFilter.GaussianBlur(args.core_feather_px)),
-        dtype=np.float32,
-    ) / 255.0
-    core_weight_array = np.clip(core_blur * alpha_array, 0.0, 1.0)
-    core_weight = Image.fromarray(np.rint(core_weight_array * 255).astype(np.uint8))
-    final = Image.composite(object_canvas, localized, core_weight)
-    return final, outer_weight, core_weight
+    final = Image.composite(qwen, before, outer_weight)
+    return final, outer_weight
 
 
 def preservation_metrics(
@@ -162,28 +292,28 @@ def preservation_metrics(
     final: Image.Image,
     object_canvas: Image.Image,
     interaction: Image.Image,
-    core: Image.Image,
+    silhouette: Image.Image,
 ) -> dict:
     before_array = np.asarray(before, dtype=np.float32)
     final_array = np.asarray(final, dtype=np.float32)
     object_array = np.asarray(object_canvas, dtype=np.float32)
     interaction_array = np.asarray(interaction, dtype=np.uint8) > 0
-    core_array = np.asarray(core, dtype=np.uint8) > 0
+    silhouette_array = np.asarray(silhouette, dtype=np.uint8) > 0
     background = ~interaction_array
 
     bg_error = np.abs(final_array - before_array)[background]
-    core_error = np.abs(final_array - object_array)[core_array]
+    object_error = np.abs(final_array - object_array)[silhouette_array]
     bg_mae = float(bg_error.mean()) if bg_error.size else 0.0
-    core_mae = float(core_error.mean()) if core_error.size else 0.0
+    object_mae = float(object_error.mean()) if object_error.size else 0.0
     return {
         "background_mae_outside_interaction": bg_mae,
         "background_max_error_outside_interaction": float(bg_error.max()) if bg_error.size else 0.0,
         "background_changed_fraction": float(
             (np.max(np.abs(final_array - before_array), axis=2)[background] > 0).mean()
         ) if background.any() else 0.0,
-        "reference_core_mae": core_mae,
+        "reference_object_region_mae": object_mae,
         "interaction_fraction": float(interaction_array.mean()),
-        "core_fraction": float(core_array.mean()),
+        "object_fraction": float(silhouette_array.mean()),
     }
 
 
@@ -252,12 +382,14 @@ def run_case(pipe, case: dict, args) -> dict:
         collage = make_collage(before, object_canvas, paste_alpha)
         masks = build_ownership_masks(paste_alpha, args)
 
-        raw_qwen = qwen_local_inpaint(pipe, collage, masks["edit"], name, args)
-        final, outer_weight, core_weight = compose_owned_output(
-            before, raw_qwen, object_canvas, paste_alpha, masks, args
+        raw_qwen, frequency_steps = qwen_local_inpaint(
+            pipe, collage, masks["edit"], masks["silhouette"], name, args
+        )
+        final, outer_weight = compose_owned_output(
+            before, raw_qwen, masks, args
         )
         metrics = preservation_metrics(
-            before, final, object_canvas, masks["interaction"], masks["core"]
+            before, final, object_canvas, masks["interaction"], masks["silhouette"]
         )
         if metrics["background_max_error_outside_interaction"] != 0:
             raise AssertionError(f"Background ownership failed at case {case_id}, step {step}: {metrics}")
@@ -269,7 +401,6 @@ def run_case(pipe, case: dict, args) -> dict:
             mask.save(Path(f"{prefix}_{mask_name}_mask.png"))
         raw_qwen.save(Path(f"{prefix}_raw_qwen.png"))
         outer_weight.save(Path(f"{prefix}_outer_blend.png"))
-        core_weight.save(Path(f"{prefix}_core_blend.png"))
         final.save(final_path)
         diagnostic_panel(
             before, collage, raw_qwen, final, masks["edit"], Path(f"{prefix}_panel.png")
@@ -284,7 +415,11 @@ def run_case(pipe, case: dict, args) -> dict:
                 "reference": str(reference_file),
                 "rectangle": list(rectangle.box),
                 "placed_box": list(placed_box),
-                "prompt": f"Naturally integrate the pasted {name}. Preserve its identity and the unmasked scene.",
+                "prompt": (
+                    f"Integrate the pasted {name} naturally with the scene's perspective, lighting and contact. "
+                    "Preserve its design, colors and position. Change nothing outside the mask."
+                ),
+                "frequency_injection": frequency_steps,
                 "metrics": metrics,
                 "final": str(final_path),
             }
@@ -303,7 +438,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base_dir", type=Path, default=DEFAULT_BASES)
     parser.add_argument("--mask_dir", type=Path, default=DEFAULT_MASKS)
     parser.add_argument("--reference_dir", type=Path, default=DEFAULT_REFERENCES)
-    parser.add_argument("--out_dir", type=Path, default=HERE / "localized_identity_outputs")
+    parser.add_argument("--out_dir", type=Path, default=HERE / "localized_frequency_outputs")
     parser.add_argument("--case_ids", type=int, nargs="+")
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--model_id", default="Qwen/Qwen-Image-Edit-2509")
@@ -325,12 +460,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alpha_low", type=float, default=10.0)
     parser.add_argument("--alpha_high", type=float, default=45.0)
     parser.add_argument("--alpha_threshold", type=int, default=24)
-    parser.add_argument("--core_erode_px", type=int, default=8)
     parser.add_argument("--boundary_dilate_px", type=int, default=14)
     parser.add_argument("--shadow_offset_px", type=int, default=14)
     parser.add_argument("--shadow_dilate_px", type=int, default=10)
     parser.add_argument("--outer_feather_px", type=float, default=5.0)
-    parser.add_argument("--core_feather_px", type=float, default=3.0)
+    parser.add_argument("--frequency_start", type=float, default=0.375)
+    parser.add_argument("--frequency_late", type=float, default=0.625)
+    parser.add_argument("--mid_high_frequency", type=float, default=0.12)
+    parser.add_argument("--mid_low_frequency", type=float, default=0.03)
+    parser.add_argument("--late_high_frequency", type=float, default=0.30)
+    parser.add_argument("--late_low_frequency", type=float, default=0.07)
+    parser.add_argument("--high_frequency_kernel", type=int, default=3)
+    parser.add_argument("--low_frequency_kernel", type=int, default=9)
     return parser.parse_args()
 
 
@@ -339,9 +480,23 @@ def validate_args(args) -> None:
         raise ValueError("--inpaint_strength must be in (0, 1]")
     if not 0 < args.object_scale <= 1:
         raise ValueError("--object_scale must be in (0, 1]")
-    for name in ("core_erode_px", "boundary_dilate_px", "shadow_offset_px", "shadow_dilate_px"):
+    for name in ("boundary_dilate_px", "shadow_offset_px", "shadow_dilate_px"):
         if getattr(args, name) < 0:
             raise ValueError(f"--{name} cannot be negative")
+    if not 0 <= args.frequency_start < args.frequency_late <= 1:
+        raise ValueError("Require 0 <= --frequency_start < --frequency_late <= 1")
+    for name in (
+        "mid_high_frequency",
+        "mid_low_frequency",
+        "late_high_frequency",
+        "late_low_frequency",
+    ):
+        if not 0 <= getattr(args, name) <= 1:
+            raise ValueError(f"--{name} must lie in [0, 1]")
+    for name in ("high_frequency_kernel", "low_frequency_kernel"):
+        value = getattr(args, name)
+        if value < 3 or value % 2 == 0:
+            raise ValueError(f"--{name} must be an odd integer >= 3")
 
 
 def main() -> None:
