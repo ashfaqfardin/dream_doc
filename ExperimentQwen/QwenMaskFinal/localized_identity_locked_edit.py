@@ -121,13 +121,6 @@ class LocalizedFrequencyInjector:
         latent_w = 2 * (args.width // (pipe.vae_scale_factor * 2))
         channels = pipe.transformer.config.in_channels // 4
         generator = make_generator(args.device, seed)
-        noise_5d = torch.randn(
-            (1, 1, channels, latent_h, latent_w),
-            generator=generator,
-            device=self.device,
-            dtype=self.dtype,
-        )
-        self.noise = pipe._pack_latents(noise_5d, 1, channels, latent_h, latent_w)
 
         image_tensor = pipe.image_processor.preprocess(
             reference_image, args.height, args.width
@@ -190,7 +183,10 @@ class LocalizedFrequencyInjector:
         sigma = pipe.scheduler.sigmas[sigma_index].to(latents.device, latents.dtype)
 
         if high_strength > 0 or low_strength > 0:
-            reference_at_sigma = (1.0 - sigma) * self.reference + sigma * self.noise
+            # Retain the native inpaint latent's stochastic component. This
+            # introduces only the progressively denoised reference residual
+            # and avoids requiring externally supplied inpaint latents.
+            reference_at_sigma = (1.0 - sigma) * self.reference + sigma * latents
             current_grid = self._grid(latents)
             reference_grid = self._grid(reference_at_sigma)
 
@@ -221,7 +217,6 @@ class LocalizedFrequencyInjector:
         return {"latents": latents}
 
     def close(self) -> None:
-        self.noise = self.noise.cpu()
         self.reference = self.reference.cpu()
         self.gate = self.gate.cpu()
 
@@ -254,7 +249,6 @@ def qwen_local_inpaint(
             height=args.height,
             padding_mask_crop=None,
             generator=make_generator(args.device, args.seed),
-            latents=injector.noise,
             callback_on_step_end=injector,
             callback_on_step_end_tensor_inputs=["latents"],
         )
@@ -513,7 +507,7 @@ def main() -> None:
 
     pipe = load_inpaint_pipeline(args)
     summary = []
-    for case in tqdm(cases, desc="Localized identity-locked editing", unit="case"):
+    for case in tqdm(cases, desc="Localized frequency-guided editing", unit="case"):
         summary.append(run_case(pipe, case, args))
         save_json(summary, args.out_dir / "summary.json")
         if torch.cuda.is_available():
