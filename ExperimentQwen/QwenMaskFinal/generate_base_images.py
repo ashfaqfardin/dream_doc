@@ -197,7 +197,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--width", type=int, default=1024)
     parser.add_argument("--height", type=int, default=1024)
     parser.add_argument("--steps", type=int, default=8)
-    parser.add_argument("--seed", type=int, default=42, help="Base seed; case ID is added deterministically")
+    parser.add_argument("--seed", type=int, default=42, help="Fixed seed reused for every base image")
     parser.add_argument("--true_cfg_scale", type=float, default=1.0)
     parser.add_argument("--negative_prompt", default="")
     return parser.parse_args()
@@ -219,7 +219,7 @@ def main() -> None:
     for case in cases:
         case_id = int(case["id"])
         target = args.out_dir / f"base_{case_id:03d}.png"
-        seed = args.seed + case_id * 10_000
+        seed = args.seed
         record = {
             "id": case_id,
             "base_prompt": case["base_prompt"],
