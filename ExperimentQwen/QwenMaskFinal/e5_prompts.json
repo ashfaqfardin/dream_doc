@@ -31,8 +31,8 @@
       "id": 4,
       "base_prompt": "Create a photorealistic empty bedroom.",
       "objects": [
-        {"name": "bed", "obj_prompt": "Convert this sketch into a photorealistic bed.", "canny_file": "ExperimentQwen/object_canny/bed.png"},
         {"name": "dresser", "obj_prompt": "Convert this sketch into a photorealistic dresser.", "canny_file": "ExperimentQwen/object_canny/dresser.png"},
+        {"name": "bed", "obj_prompt": "Convert this sketch into a photorealistic bed.", "canny_file": "ExperimentQwen/object_canny/bed.png"},
         {"name": "pillow", "obj_prompt": "Convert this sketch into a photorealistic pillow.", "canny_file": "ExperimentQwen/object_canny/pillow.png"}
       ]
     },
@@ -58,8 +58,8 @@
       "id": 7,
       "base_prompt": "Create a photorealistic empty garage.",
       "objects": [
-        {"name": "bicycle", "obj_prompt": "Convert this sketch into a photorealistic bicycle.", "canny_file": "ExperimentQwen/object_canny/bicycle.png"},
         {"name": "ladder", "obj_prompt": "Convert this sketch into a photorealistic ladder.", "canny_file": "ExperimentQwen/object_canny/ladder.png"},
+        {"name": "bicycle", "obj_prompt": "Convert this sketch into a photorealistic bicycle.", "canny_file": "ExperimentQwen/object_canny/bicycle.png"},
         {"name": "hammer", "obj_prompt": "Convert this sketch into a photorealistic hammer.", "canny_file": "ExperimentQwen/object_canny/hammer.png"}
       ]
     },
