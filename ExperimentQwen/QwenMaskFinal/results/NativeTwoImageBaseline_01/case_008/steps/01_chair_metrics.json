@@ -1,0 +1,17 @@
+{
+  "case_id": 8,
+  "step": 1,
+  "object": "chair",
+  "changed_fraction_of_image": 0.5715970993041992,
+  "changed_pixels_inside_placement_rectangle": 0.12573348705208698,
+  "outside_placement_mae": 12.727922429431526,
+  "outside_placement_psnr": 19.01002936419403,
+  "outside_placement_max_error": 230.0,
+  "outside_placement_changed_fraction": 0.5413276501142567,
+  "target_region_dino_similarity": 0.5229672789573669,
+  "target_region_color_similarity": 0.7641600460175942,
+  "target_region_edge_similarity": 0.29459866881370544,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

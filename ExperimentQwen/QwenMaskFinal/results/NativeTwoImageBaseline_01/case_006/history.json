@@ -1,0 +1,139 @@
+[
+  {
+    "step": 1,
+    "name": "toothbrush",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      662,
+      552,
+      861,
+      611
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a toothbrush. Add the Image 2 toothbrush naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/toothbrush__toothbrush.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_006/steps/01_toothbrush_final.png",
+    "metrics": {
+      "case_id": 6,
+      "step": 1,
+      "object": "toothbrush",
+      "changed_fraction_of_image": 0.054076194763183594,
+      "changed_pixels_inside_placement_rectangle": 0.16163165970054494,
+      "outside_placement_mae": 5.50822937111498,
+      "outside_placement_psnr": 21.036990447411334,
+      "outside_placement_max_error": 252.0,
+      "outside_placement_changed_fraction": 0.04584914668196965,
+      "target_region_dino_similarity": 0.3989565372467041,
+      "target_region_color_similarity": 0.8859988613661592,
+      "target_region_edge_similarity": 0.2267773449420929,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    }
+  },
+  {
+    "step": 2,
+    "name": "bucket",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      195,
+      724,
+      400,
+      966
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a bucket. Add the Image 2 bucket naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/bucket__bucket.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_006/steps/02_bucket_final.png",
+    "metrics": {
+      "case_id": 6,
+      "step": 2,
+      "object": "bucket",
+      "changed_fraction_of_image": 0.09531593322753906,
+      "changed_pixels_inside_placement_rectangle": 0.0,
+      "outside_placement_mae": 6.5640372144797725,
+      "outside_placement_psnr": 23.10036801440856,
+      "outside_placement_max_error": 176.0,
+      "outside_placement_changed_fraction": 0.10004945113247098,
+      "target_region_dino_similarity": 0.01715226098895073,
+      "target_region_color_similarity": 0.35214428531009084,
+      "target_region_edge_similarity": 0.12449366599321365,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 3.8070578883116144,
+          "cross_turn_psnr": 33.58311433446165,
+          "cross_turn_changed_fraction": 0.21165147772762116,
+          "source_step": 1,
+          "source_object": "toothbrush",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 3.8070578883116144,
+      "prior_objects_mean_changed_fraction": 0.21165147772762116
+    }
+  },
+  {
+    "step": 3,
+    "name": "potted plant",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      195,
+      461,
+      378,
+      611
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a potted plant. Add the Image 2 potted plant naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/house_plant__potted_plant.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_006/steps/03_potted_plant_final.png",
+    "metrics": {
+      "case_id": 6,
+      "step": 3,
+      "object": "potted plant",
+      "changed_fraction_of_image": 0.10674667358398438,
+      "changed_pixels_inside_placement_rectangle": 0.22748633098667048,
+      "outside_placement_mae": 6.88746116215498,
+      "outside_placement_psnr": 19.967422909359374,
+      "outside_placement_max_error": 255.0,
+      "outside_placement_changed_fraction": 0.08468004927893326,
+      "target_region_dino_similarity": 0.6380175352096558,
+      "target_region_color_similarity": 0.9715077594214191,
+      "target_region_edge_similarity": 0.4343586266040802,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 7.0909916815717,
+          "cross_turn_psnr": 28.169135643791577,
+          "cross_turn_changed_fraction": 0.5552337960991398,
+          "source_step": 1,
+          "source_object": "toothbrush",
+          "evaluated_at_step": 3
+        },
+        {
+          "cross_turn_mae": 1.5052811933078007,
+          "cross_turn_psnr": 43.760238702455034,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "bucket",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 4.298136437439751,
+      "prior_objects_mean_changed_fraction": 0.2776168980495699
+    }
+  }
+]

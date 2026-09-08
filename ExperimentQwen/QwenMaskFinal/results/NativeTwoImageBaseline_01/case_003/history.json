@@ -1,0 +1,139 @@
+[
+  {
+    "step": 1,
+    "name": "laptop",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      601,
+      412,
+      809,
+      546
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a laptop. Add the Image 2 laptop naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/laptop__laptop.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_003/steps/01_laptop_final.png",
+    "metrics": {
+      "case_id": 3,
+      "step": 1,
+      "object": "laptop",
+      "changed_fraction_of_image": 0.035773277282714844,
+      "changed_pixels_inside_placement_rectangle": 0.032203886859854446,
+      "outside_placement_mae": 7.024567030859746,
+      "outside_placement_psnr": 18.612603461115064,
+      "outside_placement_max_error": 211.0,
+      "outside_placement_changed_fraction": 0.03556662852305859,
+      "target_region_dino_similarity": 0.5217147469520569,
+      "target_region_color_similarity": 0.37203078323583777,
+      "target_region_edge_similarity": 0.08960296958684921,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    }
+  },
+  {
+    "step": 2,
+    "name": "clock",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      393,
+      62,
+      631,
+      297
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a clock. Add the Image 2 clock naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/clock__clock.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_003/steps/02_clock_final.png",
+    "metrics": {
+      "case_id": 3,
+      "step": 2,
+      "object": "clock",
+      "changed_fraction_of_image": 0.0625295639038086,
+      "changed_pixels_inside_placement_rectangle": 0.6528894108316684,
+      "outside_placement_mae": 3.067974551518534,
+      "outside_placement_psnr": 26.249382458461305,
+      "outside_placement_max_error": 208.0,
+      "outside_placement_changed_fraction": 0.022927609641302134,
+      "target_region_dino_similarity": 0.9168109893798828,
+      "target_region_color_similarity": 0.6893957696115477,
+      "target_region_edge_similarity": 0.21026885509490967,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 1.3746531764255645,
+          "cross_turn_psnr": 43.767630273671855,
+          "cross_turn_changed_fraction": 0.0015068886337543054,
+          "source_step": 1,
+          "source_object": "laptop",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 1.3746531764255645,
+      "prior_objects_mean_changed_fraction": 0.0015068886337543054
+    }
+  },
+  {
+    "step": 3,
+    "name": "chair",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      264,
+      412,
+      568,
+      888
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a chair. Add the Image 2 chair naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/chair__chair.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_003/steps/03_chair_final.png",
+    "metrics": {
+      "case_id": 3,
+      "step": 3,
+      "object": "chair",
+      "changed_fraction_of_image": 0.13433456420898438,
+      "changed_pixels_inside_placement_rectangle": 0.13346585261962232,
+      "outside_placement_mae": 10.630540607519649,
+      "outside_placement_psnr": 17.590542883462973,
+      "outside_placement_max_error": 220.0,
+      "outside_placement_changed_fraction": 0.13504124477802168,
+      "target_region_dino_similarity": 0.3282182216644287,
+      "target_region_color_similarity": 0.6106484393814258,
+      "target_region_edge_similarity": 0.19886094331741333,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 48.73552908534252,
+          "cross_turn_psnr": 9.069799309052012,
+          "cross_turn_changed_fraction": 0.33054678530424797,
+          "source_step": 1,
+          "source_object": "laptop",
+          "evaluated_at_step": 3
+        },
+        {
+          "cross_turn_mae": 2.3945229155491985,
+          "cross_turn_psnr": 34.31121962235511,
+          "cross_turn_changed_fraction": 0.07228678705524763,
+          "source_step": 2,
+          "source_object": "clock",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 25.565026000445858,
+      "prior_objects_mean_changed_fraction": 0.2014167861797478
+    }
+  }
+]

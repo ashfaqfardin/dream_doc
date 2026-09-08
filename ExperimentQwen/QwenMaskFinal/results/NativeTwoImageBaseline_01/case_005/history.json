@@ -1,0 +1,139 @@
+[
+  {
+    "step": 1,
+    "name": "teapot",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      534,
+      21,
+      733,
+      321
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a teapot. Add the Image 2 teapot naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/teapot__teapot.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_005/steps/01_teapot_final.png",
+    "metrics": {
+      "case_id": 5,
+      "step": 1,
+      "object": "teapot",
+      "changed_fraction_of_image": 0.0871896743774414,
+      "changed_pixels_inside_placement_rectangle": 0.000404703308722997,
+      "outside_placement_mae": 10.175801617189617,
+      "outside_placement_psnr": 17.405165401646002,
+      "outside_placement_max_error": 229.0,
+      "outside_placement_changed_fraction": 0.09241603598428923,
+      "target_region_dino_similarity": 0.07424518465995789,
+      "target_region_color_similarity": 0.3845585115423448,
+      "target_region_edge_similarity": 0.1599331647157669,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    }
+  },
+  {
+    "step": 2,
+    "name": "vase",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      125,
+      220,
+      400,
+      496
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a vase. Add the Image 2 vase naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/vase__vase.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_005/steps/02_vase_final.png",
+    "metrics": {
+      "case_id": 5,
+      "step": 2,
+      "object": "vase",
+      "changed_fraction_of_image": 0.09433650970458984,
+      "changed_pixels_inside_placement_rectangle": 0.17347526764322324,
+      "outside_placement_mae": 7.250679568530528,
+      "outside_placement_psnr": 21.28648954778204,
+      "outside_placement_max_error": 201.0,
+      "outside_placement_changed_fraction": 0.08405573901278535,
+      "target_region_dino_similarity": 0.282120943069458,
+      "target_region_color_similarity": 0.6626499410377279,
+      "target_region_edge_similarity": 0.14383414387702942,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 46.86329424902289,
+          "cross_turn_psnr": 10.699754380473596,
+          "cross_turn_changed_fraction": 0.45326633165829144,
+          "source_step": 1,
+          "source_object": "teapot",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 46.86329424902289,
+      "prior_objects_mean_changed_fraction": 0.45326633165829144
+    }
+  },
+  {
+    "step": 3,
+    "name": "fork",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      437,
+      339,
+      661,
+      453
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a fork. Add the Image 2 fork naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/fork__fork.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_005/steps/03_fork_final.png",
+    "metrics": {
+      "case_id": 5,
+      "step": 3,
+      "object": "fork",
+      "changed_fraction_of_image": 0.0677022933959961,
+      "changed_pixels_inside_placement_rectangle": 0.025651138876759027,
+      "outside_placement_mae": 5.861769823271818,
+      "outside_placement_psnr": 21.51041719273547,
+      "outside_placement_max_error": 249.0,
+      "outside_placement_changed_fraction": 0.06761221457616516,
+      "target_region_dino_similarity": 0.05961746349930763,
+      "target_region_color_similarity": 0.5634405313529367,
+      "target_region_edge_similarity": 0.2498004287481308,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 48.09193746510329,
+          "cross_turn_psnr": 10.670908807925157,
+          "cross_turn_changed_fraction": 0.4801675041876047,
+          "source_step": 1,
+          "source_object": "teapot",
+          "evaluated_at_step": 3
+        },
+        {
+          "cross_turn_mae": 3.043772507685551,
+          "cross_turn_psnr": 34.72762460355101,
+          "cross_turn_changed_fraction": 0.1241897233201581,
+          "source_step": 2,
+          "source_object": "vase",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 25.567854986394423,
+      "prior_objects_mean_changed_fraction": 0.3021786137538814
+    }
+  }
+]

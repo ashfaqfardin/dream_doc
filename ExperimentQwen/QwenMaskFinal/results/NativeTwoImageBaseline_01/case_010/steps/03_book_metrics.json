@@ -1,0 +1,34 @@
+{
+  "case_id": 10,
+  "step": 3,
+  "object": "book",
+  "changed_fraction_of_image": 0.03855705261230469,
+  "changed_pixels_inside_placement_rectangle": 0.032599554786049964,
+  "outside_placement_mae": 3.3596140105637984,
+  "outside_placement_psnr": 25.464392484919202,
+  "outside_placement_max_error": 237.0,
+  "outside_placement_changed_fraction": 0.03807328464822707,
+  "target_region_dino_similarity": 0.15747888386249542,
+  "target_region_color_similarity": 0.48358696135278256,
+  "target_region_edge_similarity": 0.15930984914302826,
+  "prior_object_stability": [
+    {
+      "cross_turn_mae": 46.70954322849747,
+      "cross_turn_psnr": 9.69813418121169,
+      "cross_turn_changed_fraction": 0.5019719568739177,
+      "source_step": 1,
+      "source_object": "table",
+      "evaluated_at_step": 3
+    },
+    {
+      "cross_turn_mae": 2.8247643374080154,
+      "cross_turn_psnr": 36.398584641450775,
+      "cross_turn_changed_fraction": 0.05827403758438241,
+      "source_step": 2,
+      "source_object": "chair",
+      "evaluated_at_step": 3
+    }
+  ],
+  "prior_objects_mean_mae": 24.767153782952743,
+  "prior_objects_mean_changed_fraction": 0.2801229972291501
+}

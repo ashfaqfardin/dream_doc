@@ -1,0 +1,139 @@
+[
+  {
+    "step": 1,
+    "name": "dresser",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      756,
+      483,
+      998,
+      766
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a dresser. Add the Image 2 dresser naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/dresser__dresser.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_004/steps/01_dresser_final.png",
+    "metrics": {
+      "case_id": 4,
+      "step": 1,
+      "object": "dresser",
+      "changed_fraction_of_image": 0.30536365509033203,
+      "changed_pixels_inside_placement_rectangle": 0.09319575136556557,
+      "outside_placement_mae": 24.468390317895974,
+      "outside_placement_psnr": 13.278185586824167,
+      "outside_placement_max_error": 255.0,
+      "outside_placement_changed_fraction": 0.29625442561397425,
+      "target_region_dino_similarity": 0.09939016401767731,
+      "target_region_color_similarity": 0.5069210852138638,
+      "target_region_edge_similarity": 0.14135950803756714,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    }
+  },
+  {
+    "step": 2,
+    "name": "bed",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      51,
+      462,
+      704,
+      865
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a bed. Add the Image 2 bed naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/bed__bed.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_004/steps/02_bed_final.png",
+    "metrics": {
+      "case_id": 4,
+      "step": 2,
+      "object": "bed",
+      "changed_fraction_of_image": 0.3062286376953125,
+      "changed_pixels_inside_placement_rectangle": 0.6556567342667796,
+      "outside_placement_mae": 10.385764080312327,
+      "outside_placement_psnr": 18.007737611431747,
+      "outside_placement_max_error": 247.0,
+      "outside_placement_changed_fraction": 0.1407787200939119,
+      "target_region_dino_similarity": 0.8268306255340576,
+      "target_region_color_similarity": 0.8998921951046722,
+      "target_region_edge_similarity": 0.17795024812221527,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 23.841310632830066,
+          "cross_turn_psnr": 13.754718168467763,
+          "cross_turn_changed_fraction": 0.28725578950442426,
+          "source_step": 1,
+          "source_object": "dresser",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 23.841310632830066,
+      "prior_objects_mean_changed_fraction": 0.28725578950442426
+    }
+  },
+  {
+    "step": 3,
+    "name": "pillow",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      439,
+      775,
+      732,
+      956
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a pillow. Add the Image 2 pillow naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/pillow__pillow.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_004/steps/03_pillow_final.png",
+    "metrics": {
+      "case_id": 4,
+      "step": 3,
+      "object": "pillow",
+      "changed_fraction_of_image": 0.4065742492675781,
+      "changed_pixels_inside_placement_rectangle": 0.056321014064420485,
+      "outside_placement_mae": 9.179362083472704,
+      "outside_placement_psnr": 22.075496982425644,
+      "outside_placement_max_error": 219.0,
+      "outside_placement_changed_fraction": 0.40411413670730445,
+      "target_region_dino_similarity": 0.21342246234416962,
+      "target_region_color_similarity": 0.582417851019204,
+      "target_region_edge_similarity": 0.1553145945072174,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 33.845642418401816,
+          "cross_turn_psnr": 12.26618107446588,
+          "cross_turn_changed_fraction": 0.5657944689425576,
+          "source_step": 1,
+          "source_object": "dresser",
+          "evaluated_at_step": 3
+        },
+        {
+          "cross_turn_mae": 8.10885434281176,
+          "cross_turn_psnr": 25.674377066723252,
+          "cross_turn_changed_fraction": 0.3759704209242321,
+          "source_step": 2,
+          "source_object": "bed",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 20.977248380606788,
+      "prior_objects_mean_changed_fraction": 0.4708824449333948
+    }
+  }
+]

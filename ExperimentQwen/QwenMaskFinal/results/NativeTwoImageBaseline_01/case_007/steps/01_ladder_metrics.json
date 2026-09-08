@@ -1,0 +1,17 @@
+{
+  "case_id": 7,
+  "step": 1,
+  "object": "ladder",
+  "changed_fraction_of_image": 0.07240581512451172,
+  "changed_pixels_inside_placement_rectangle": 0.006993928058691042,
+  "outside_placement_mae": 6.540001046640759,
+  "outside_placement_psnr": 20.820662039512527,
+  "outside_placement_max_error": 242.0,
+  "outside_placement_changed_fraction": 0.07685877282050654,
+  "target_region_dino_similarity": 0.13087573647499084,
+  "target_region_color_similarity": 0.6612925828974622,
+  "target_region_edge_similarity": 0.13570885360240936,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

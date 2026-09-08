@@ -1,0 +1,26 @@
+{
+  "case_id": 9,
+  "step": 2,
+  "object": "table",
+  "changed_fraction_of_image": 0.16160106658935547,
+  "changed_pixels_inside_placement_rectangle": 0.38104820862668265,
+  "outside_placement_mae": 5.945364026296759,
+  "outside_placement_psnr": 19.903511996448863,
+  "outside_placement_max_error": 236.0,
+  "outside_placement_changed_fraction": 0.11105075858885215,
+  "target_region_dino_similarity": 0.12352434545755386,
+  "target_region_color_similarity": 0.8296761354341782,
+  "target_region_edge_similarity": 0.32491636276245117,
+  "prior_object_stability": [
+    {
+      "cross_turn_mae": 18.988474911075965,
+      "cross_turn_psnr": 13.408335730436672,
+      "cross_turn_changed_fraction": 0.20843260125327834,
+      "source_step": 1,
+      "source_object": "basket",
+      "evaluated_at_step": 2
+    }
+  ],
+  "prior_objects_mean_mae": 18.988474911075965,
+  "prior_objects_mean_changed_fraction": 0.20843260125327834
+}

@@ -1,0 +1,17 @@
+{
+  "case_id": 2,
+  "step": 1,
+  "object": "toaster",
+  "changed_fraction_of_image": 0.19211196899414062,
+  "changed_pixels_inside_placement_rectangle": 0.00040209686066599155,
+  "outside_placement_mae": 11.77594144763258,
+  "outside_placement_psnr": 18.16836181243499,
+  "outside_placement_max_error": 216.0,
+  "outside_placement_changed_fraction": 0.19435382370201068,
+  "target_region_dino_similarity": 0.09807565063238144,
+  "target_region_color_similarity": 0.4492145346488243,
+  "target_region_edge_similarity": 0.2928571105003357,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

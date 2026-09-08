@@ -1,0 +1,17 @@
+{
+  "case_id": 6,
+  "step": 1,
+  "object": "toothbrush",
+  "changed_fraction_of_image": 0.054076194763183594,
+  "changed_pixels_inside_placement_rectangle": 0.16163165970054494,
+  "outside_placement_mae": 5.50822937111498,
+  "outside_placement_psnr": 21.036990447411334,
+  "outside_placement_max_error": 252.0,
+  "outside_placement_changed_fraction": 0.04584914668196965,
+  "target_region_dino_similarity": 0.3989565372467041,
+  "target_region_color_similarity": 0.8859988613661592,
+  "target_region_edge_similarity": 0.2267773449420929,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

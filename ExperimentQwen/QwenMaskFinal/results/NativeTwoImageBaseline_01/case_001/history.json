@@ -1,0 +1,139 @@
+[
+  {
+    "step": 1,
+    "name": "couch",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      128,
+      554,
+      775,
+      849
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a couch. Add the Image 2 couch naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/couch__couch.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_001/steps/01_couch_final.png",
+    "metrics": {
+      "case_id": 1,
+      "step": 1,
+      "object": "couch",
+      "changed_fraction_of_image": 0.3318662643432617,
+      "changed_pixels_inside_placement_rectangle": 0.352352243043562,
+      "outside_placement_mae": 7.399785397801047,
+      "outside_placement_psnr": 23.006476711529622,
+      "outside_placement_max_error": 218.0,
+      "outside_placement_changed_fraction": 0.2627609999172215,
+      "target_region_dino_similarity": 0.7251007556915283,
+      "target_region_color_similarity": 0.8113220239086826,
+      "target_region_edge_similarity": 0.3440729081630707,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    }
+  },
+  {
+    "step": 2,
+    "name": "floor lamp",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      792,
+      554,
+      959,
+      849
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a floor lamp. Add the Image 2 floor lamp naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/floor_lamp__floor_lamp.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_001/steps/02_floor_lamp_final.png",
+    "metrics": {
+      "case_id": 1,
+      "step": 2,
+      "object": "floor lamp",
+      "changed_fraction_of_image": 0.061453819274902344,
+      "changed_pixels_inside_placement_rectangle": 0.0030571548285975884,
+      "outside_placement_mae": 4.2285601446063,
+      "outside_placement_psnr": 22.846108204127063,
+      "outside_placement_max_error": 253.0,
+      "outside_placement_changed_fraction": 0.06428629325605342,
+      "target_region_dino_similarity": 0.19293707609176636,
+      "target_region_color_similarity": 0.8103747408097113,
+      "target_region_edge_similarity": 0.1544758677482605,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 6.650756643002471,
+          "cross_turn_psnr": 21.59446323776821,
+          "cross_turn_changed_fraction": 0.13347130170539387,
+          "source_step": 1,
+          "source_object": "couch",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 6.650756643002471,
+      "prior_objects_mean_changed_fraction": 0.13347130170539387
+    }
+  },
+  {
+    "step": 3,
+    "name": "potted plant",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      53,
+      782,
+      229,
+      945
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a potted plant. Add the Image 2 potted plant naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/house_plant__potted_plant.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_001/steps/03_potted_plant_final.png",
+    "metrics": {
+      "case_id": 1,
+      "step": 3,
+      "object": "potted plant",
+      "changed_fraction_of_image": 0.06938648223876953,
+      "changed_pixels_inside_placement_rectangle": 0.012699808953090424,
+      "outside_placement_mae": 4.094719550904936,
+      "outside_placement_psnr": 24.548559518526556,
+      "outside_placement_max_error": 226.0,
+      "outside_placement_changed_fraction": 0.07043224354046719,
+      "target_region_dino_similarity": 0.06951604783535004,
+      "target_region_color_similarity": 0.5781667037959443,
+      "target_region_edge_similarity": 0.2800288498401642,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 8.190591954173543,
+          "cross_turn_psnr": 21.173563025068983,
+          "cross_turn_changed_fraction": 0.19868493437770152,
+          "source_step": 1,
+          "source_object": "couch",
+          "evaluated_at_step": 3
+        },
+        {
+          "cross_turn_mae": 26.419330829865693,
+          "cross_turn_psnr": 14.946750084942945,
+          "cross_turn_changed_fraction": 0.5514462600223282,
+          "source_step": 2,
+          "source_object": "floor lamp",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 17.304961392019617,
+      "prior_objects_mean_changed_fraction": 0.37506559720001487
+    }
+  }
+]

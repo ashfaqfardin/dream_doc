@@ -1,0 +1,119 @@
+{
+  "case_id": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 5.5,
+    "std": 2.8722813232690143,
+    "min": 1.0,
+    "max": 10.0
+  },
+  "step": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 2.0,
+    "std": 0.816496580927726,
+    "min": 1.0,
+    "max": 3.0
+  },
+  "changed_fraction_of_image": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.16584113438924153,
+    "std": 0.13764171200177114,
+    "min": 0.01803112030029297,
+    "max": 0.5715970993041992
+  },
+  "changed_pixels_inside_placement_rectangle": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.1360986092702122,
+    "std": 0.1828091291390182,
+    "min": 0.0,
+    "max": 0.6556567342667796
+  },
+  "outside_placement_changed_fraction": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.14987542324005249,
+    "std": 0.1299827487216908,
+    "min": 0.018071417402443776,
+    "max": 0.5413276501142567
+  },
+  "outside_placement_mae": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 8.831842186714544,
+    "std": 5.462338190969431,
+    "min": 2.1245953437881635,
+    "max": 24.468390317895974
+  },
+  "outside_placement_max_error": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 229.86666666666667,
+    "std": 27.612477050943635,
+    "min": 122.0,
+    "max": 255.0
+  },
+  "outside_placement_psnr": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 20.603186532338658,
+    "std": 4.9180888463556105,
+    "min": 12.412469917508647,
+    "max": 38.856159945238865
+  },
+  "prior_objects_mean_changed_fraction": {
+    "count": 20,
+    "finite_count": 20,
+    "infinite_count": 0,
+    "mean": 0.26269209627244655,
+    "std": 0.16065883738373912,
+    "min": 0.0015068886337543054,
+    "max": 0.5822242254052762
+  },
+  "prior_objects_mean_mae": {
+    "count": 20,
+    "finite_count": 20,
+    "infinite_count": 0,
+    "mean": 15.621855970270015,
+    "std": 11.79868609937062,
+    "min": 1.3746531764255645,
+    "max": 46.86329424902289
+  },
+  "target_region_color_similarity": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.6500418002909782,
+    "std": 0.17924271211731968,
+    "min": 0.35214428531009084,
+    "max": 0.9715077594214191
+  },
+  "target_region_dino_similarity": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.30522947389011584,
+    "std": 0.26569505946101113,
+    "min": 0.01510379184037447,
+    "max": 0.9168109893798828
+  },
+  "target_region_edge_similarity": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.21570692608753841,
+    "std": 0.07527076134712483,
+    "min": 0.08960296958684921,
+    "max": 0.4343586266040802
+  }
+}

@@ -1,0 +1,139 @@
+[
+  {
+    "step": 1,
+    "name": "basket",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      103,
+      670,
+      302,
+      921
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a basket. Add the Image 2 basket naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/basket__basket.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_009/steps/01_basket_final.png",
+    "metrics": {
+      "case_id": 9,
+      "step": 1,
+      "object": "basket",
+      "changed_fraction_of_image": 0.225830078125,
+      "changed_pixels_inside_placement_rectangle": 0.0010599662162162162,
+      "outside_placement_mae": 23.827183723252023,
+      "outside_placement_psnr": 12.412469917508647,
+      "outside_placement_max_error": 246.0,
+      "outside_placement_changed_fraction": 0.23687422831547714,
+      "target_region_dino_similarity": 0.05762100964784622,
+      "target_region_color_similarity": 0.3569774594964439,
+      "target_region_edge_similarity": 0.19212347269058228,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    }
+  },
+  {
+    "step": 2,
+    "name": "table",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      450,
+      512,
+      875,
+      757
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a table. Add the Image 2 table naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/table__table.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_009/steps/02_table_final.png",
+    "metrics": {
+      "case_id": 9,
+      "step": 2,
+      "object": "table",
+      "changed_fraction_of_image": 0.16160106658935547,
+      "changed_pixels_inside_placement_rectangle": 0.38104820862668265,
+      "outside_placement_mae": 5.945364026296759,
+      "outside_placement_psnr": 19.903511996448863,
+      "outside_placement_max_error": 236.0,
+      "outside_placement_changed_fraction": 0.11105075858885215,
+      "target_region_dino_similarity": 0.12352434545755386,
+      "target_region_color_similarity": 0.8296761354341782,
+      "target_region_edge_similarity": 0.32491636276245117,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 18.988474911075965,
+          "cross_turn_psnr": 13.408335730436672,
+          "cross_turn_changed_fraction": 0.20843260125327834,
+          "source_step": 1,
+          "source_object": "basket",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 18.988474911075965,
+      "prior_objects_mean_changed_fraction": 0.20843260125327834
+    }
+  },
+  {
+    "step": 3,
+    "name": "chair",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      663,
+      583,
+      832,
+      863
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a chair. Add the Image 2 chair naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/chair__chair.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_009/steps/03_chair_final.png",
+    "metrics": {
+      "case_id": 9,
+      "step": 3,
+      "object": "chair",
+      "changed_fraction_of_image": 0.15856647491455078,
+      "changed_pixels_inside_placement_rectangle": 0.07347731687807108,
+      "outside_placement_mae": 10.106769231178973,
+      "outside_placement_psnr": 17.70798769565774,
+      "outside_placement_max_error": 255.0,
+      "outside_placement_changed_fraction": 0.15385875340572241,
+      "target_region_dino_similarity": 0.05341292545199394,
+      "target_region_color_similarity": 0.8607000117746905,
+      "target_region_edge_similarity": 0.2221771776676178,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 20.15529173089885,
+          "cross_turn_psnr": 13.367223744017586,
+          "cross_turn_changed_fraction": 0.2138781557188332,
+          "source_step": 1,
+          "source_object": "basket",
+          "evaluated_at_step": 3
+        },
+        {
+          "cross_turn_mae": 20.770244097639054,
+          "cross_turn_psnr": 14.863310181183188,
+          "cross_turn_changed_fraction": 0.5347322929171668,
+          "source_step": 2,
+          "source_object": "table",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 20.46276791426895,
+      "prior_objects_mean_changed_fraction": 0.374305224318
+    }
+  }
+]

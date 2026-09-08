@@ -1,0 +1,139 @@
+[
+  {
+    "step": 1,
+    "name": "toaster",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      162,
+      445,
+      298,
+      537
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a toaster. Add the Image 2 toaster naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/toaster__toaster.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_002/steps/01_toaster_final.png",
+    "metrics": {
+      "case_id": 2,
+      "step": 1,
+      "object": "toaster",
+      "changed_fraction_of_image": 0.19211196899414062,
+      "changed_pixels_inside_placement_rectangle": 0.00040209686066599155,
+      "outside_placement_mae": 11.77594144763258,
+      "outside_placement_psnr": 18.16836181243499,
+      "outside_placement_max_error": 216.0,
+      "outside_placement_changed_fraction": 0.19435382370201068,
+      "target_region_dino_similarity": 0.09807565063238144,
+      "target_region_color_similarity": 0.4492145346488243,
+      "target_region_edge_similarity": 0.2928571105003357,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    }
+  },
+  {
+    "step": 2,
+    "name": "microwave",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      599,
+      445,
+      802,
+      537
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a microwave. Add the Image 2 microwave naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/microwave__microwave.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_002/steps/02_microwave_final.png",
+    "metrics": {
+      "case_id": 2,
+      "step": 2,
+      "object": "microwave",
+      "changed_fraction_of_image": 0.08986091613769531,
+      "changed_pixels_inside_placement_rectangle": 0.0006792180502196846,
+      "outside_placement_mae": 9.288685309253326,
+      "outside_placement_psnr": 17.887533203376115,
+      "outside_placement_max_error": 255.0,
+      "outside_placement_changed_fraction": 0.0914282940091271,
+      "target_region_dino_similarity": 0.2812194228172302,
+      "target_region_color_similarity": 0.38685936518722785,
+      "target_region_edge_similarity": 0.2131597101688385,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 1.5418265132139812,
+          "cross_turn_psnr": 42.20861467939736,
+          "cross_turn_changed_fraction": 0.0019181585677749361,
+          "source_step": 1,
+          "source_object": "toaster",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 1.5418265132139812,
+      "prior_objects_mean_changed_fraction": 0.0019181585677749361
+    }
+  },
+  {
+    "step": 3,
+    "name": "oven",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      360,
+      430,
+      537,
+      537
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a oven. Add the Image 2 oven naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/oven__oven.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_002/steps/03_oven_final.png",
+    "metrics": {
+      "case_id": 2,
+      "step": 3,
+      "object": "oven",
+      "changed_fraction_of_image": 0.01803112030029297,
+      "changed_pixels_inside_placement_rectangle": 0.01586713915481039,
+      "outside_placement_mae": 2.1317014313458693,
+      "outside_placement_psnr": 38.856159945238865,
+      "outside_placement_max_error": 122.0,
+      "outside_placement_changed_fraction": 0.018071417402443776,
+      "target_region_dino_similarity": 0.11654485762119293,
+      "target_region_color_similarity": 0.5414296613665536,
+      "target_region_edge_similarity": 0.24684633314609528,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 3.3284313725490198,
+          "cross_turn_psnr": 35.499828396438474,
+          "cross_turn_changed_fraction": 0.05946291560102302,
+          "source_step": 1,
+          "source_object": "toaster",
+          "evaluated_at_step": 3
+        },
+        {
+          "cross_turn_mae": 2.590329835082459,
+          "cross_turn_psnr": 37.81729585157638,
+          "cross_turn_changed_fraction": 0.023077746840865283,
+          "source_step": 2,
+          "source_object": "microwave",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 2.959380603815739,
+      "prior_objects_mean_changed_fraction": 0.04127033122094415
+    }
+  }
+]

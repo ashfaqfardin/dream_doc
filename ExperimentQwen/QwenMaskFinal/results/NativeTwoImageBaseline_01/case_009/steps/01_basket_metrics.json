@@ -1,0 +1,17 @@
+{
+  "case_id": 9,
+  "step": 1,
+  "object": "basket",
+  "changed_fraction_of_image": 0.225830078125,
+  "changed_pixels_inside_placement_rectangle": 0.0010599662162162162,
+  "outside_placement_mae": 23.827183723252023,
+  "outside_placement_psnr": 12.412469917508647,
+  "outside_placement_max_error": 246.0,
+  "outside_placement_changed_fraction": 0.23687422831547714,
+  "target_region_dino_similarity": 0.05762100964784622,
+  "target_region_color_similarity": 0.3569774594964439,
+  "target_region_edge_similarity": 0.19212347269058228,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

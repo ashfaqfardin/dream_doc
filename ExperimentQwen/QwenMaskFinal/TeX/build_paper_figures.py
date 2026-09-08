@@ -9,6 +9,7 @@ FIGURES = HERE / "figures"
 RESULTS = HERE.parent / "results"
 QWEN = RESULTS / "QwenMaskFinal_04"
 KONTEXT = RESULTS / "KontextMaskFinal_01"
+NATIVE = RESULTS / "NativeTwoImageBaseline_01"
 SIZE = (1920, 800)
 BG = "#FFFFFF"
 INK = "#172033"
@@ -81,16 +82,17 @@ def all_cases(output: Path):
     centered(draw, (960, 14), "Matched Qualitative Comparison Across Ten Scenes", font(34))
     row_specs = [
         ("Input", QWEN, "base.png", MUTED),
+        ("Native", NATIVE, "FINAL.png", "#315C9B"),
         ("Qwen", QWEN, "FINAL.png", QWEN_COLOR),
         ("Kontext", KONTEXT, "FINAL.png", KONTEXT_COLOR),
     ]
-    side, gap, start_x = 176, 9, 80
-    row_y = [120, 340, 560]
+    side, gap, start_x = 154, 25, 112
+    row_y = [105, 278, 451, 624]
     for case_id in range(1, 11):
         x = start_x + (case_id - 1) * (side + gap)
-        centered(draw, (x + side // 2, 75), f"Case {case_id}", font(20))
+        centered(draw, (x + side // 2, 68), f"Case {case_id}", font(18))
     for y, (label, root, name, color) in zip(row_y, row_specs):
-        draw.text((12, y + side // 2 - 12), label, font=font(20), fill=color)
+        draw.text((12, y + side // 2 - 12), label, font=font(18), fill=color)
         for case_id in range(1, 11):
             x = start_x + (case_id - 1) * (side + gap)
             path = root / f"case_{case_id:03d}" / name

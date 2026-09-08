@@ -1,0 +1,139 @@
+[
+  {
+    "step": 1,
+    "name": "ladder",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      722,
+      317,
+      921,
+      657
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a ladder. Add the Image 2 ladder naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/ladder__ladder.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_007/steps/01_ladder_final.png",
+    "metrics": {
+      "case_id": 7,
+      "step": 1,
+      "object": "ladder",
+      "changed_fraction_of_image": 0.07240581512451172,
+      "changed_pixels_inside_placement_rectangle": 0.006993928058691042,
+      "outside_placement_mae": 6.540001046640759,
+      "outside_placement_psnr": 20.820662039512527,
+      "outside_placement_max_error": 242.0,
+      "outside_placement_changed_fraction": 0.07685877282050654,
+      "target_region_dino_similarity": 0.13087573647499084,
+      "target_region_color_similarity": 0.6612925828974622,
+      "target_region_edge_similarity": 0.13570885360240936,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    }
+  },
+  {
+    "step": 2,
+    "name": "bicycle",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      103,
+      499,
+      693,
+      790
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a bicycle. Add the Image 2 bicycle naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/bicycle__bicycle.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_007/steps/02_bicycle_final.png",
+    "metrics": {
+      "case_id": 7,
+      "step": 2,
+      "object": "bicycle",
+      "changed_fraction_of_image": 0.1499176025390625,
+      "changed_pixels_inside_placement_rectangle": 0.4603117048346056,
+      "outside_placement_mae": 8.591477113330582,
+      "outside_placement_psnr": 18.337604933501567,
+      "outside_placement_max_error": 225.0,
+      "outside_placement_changed_fraction": 0.0967503187415468,
+      "target_region_dino_similarity": 0.8518876433372498,
+      "target_region_color_similarity": 0.7399093123558685,
+      "target_region_edge_similarity": 0.3120800852775574,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 12.121913489013696,
+          "cross_turn_psnr": 16.827655448211736,
+          "cross_turn_changed_fraction": 0.11560744900975466,
+          "source_step": 1,
+          "source_object": "ladder",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 12.121913489013696,
+      "prior_objects_mean_changed_fraction": 0.11560744900975466
+    }
+  },
+  {
+    "step": 3,
+    "name": "hammer",
+    "status": "generated",
+    "seed": 42,
+    "model_inputs": [
+      "current_scene",
+      "reference_object"
+    ],
+    "placement_used_for_generation": false,
+    "evaluation_rectangle": [
+      789,
+      698,
+      972,
+      790
+    ],
+    "prompt": "Image 1 is the current scene. Image 2 is a reference image of a hammer. Add the Image 2 hammer naturally to Image 1. Preserve the existing scene and objects.",
+    "reference": "/content/dream_doc/ExperimentQwen/references/hammer__hammer.png",
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/results/NativeTwoImageBaseline_01/case_007/steps/03_hammer_final.png",
+    "metrics": {
+      "case_id": 7,
+      "step": 3,
+      "object": "hammer",
+      "changed_fraction_of_image": 0.03908348083496094,
+      "changed_pixels_inside_placement_rectangle": 0.012932506954272607,
+      "outside_placement_mae": 2.1245953437881635,
+      "outside_placement_psnr": 27.97743814333767,
+      "outside_placement_max_error": 255.0,
+      "outside_placement_changed_fraction": 0.039207552290305696,
+      "target_region_dino_similarity": 0.01510379184037447,
+      "target_region_color_similarity": 0.6257864362006058,
+      "target_region_edge_similarity": 0.19056525826454163,
+      "prior_object_stability": [
+        {
+          "cross_turn_mae": 12.958838309193023,
+          "cross_turn_psnr": 16.727094638277876,
+          "cross_turn_changed_fraction": 0.13245639964528524,
+          "source_step": 1,
+          "source_object": "ladder",
+          "evaluated_at_step": 3
+        },
+        {
+          "cross_turn_mae": 3.896295649135069,
+          "cross_turn_psnr": 25.00488644908746,
+          "cross_turn_changed_fraction": 0.1038499621410682,
+          "source_step": 2,
+          "source_object": "bicycle",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 8.427566979164046,
+      "prior_objects_mean_changed_fraction": 0.11815318089317672
+    }
+  }
+]

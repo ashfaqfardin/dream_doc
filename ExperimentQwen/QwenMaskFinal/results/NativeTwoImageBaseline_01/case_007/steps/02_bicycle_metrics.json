@@ -1,0 +1,26 @@
+{
+  "case_id": 7,
+  "step": 2,
+  "object": "bicycle",
+  "changed_fraction_of_image": 0.1499176025390625,
+  "changed_pixels_inside_placement_rectangle": 0.4603117048346056,
+  "outside_placement_mae": 8.591477113330582,
+  "outside_placement_psnr": 18.337604933501567,
+  "outside_placement_max_error": 225.0,
+  "outside_placement_changed_fraction": 0.0967503187415468,
+  "target_region_dino_similarity": 0.8518876433372498,
+  "target_region_color_similarity": 0.7399093123558685,
+  "target_region_edge_similarity": 0.3120800852775574,
+  "prior_object_stability": [
+    {
+      "cross_turn_mae": 12.121913489013696,
+      "cross_turn_psnr": 16.827655448211736,
+      "cross_turn_changed_fraction": 0.11560744900975466,
+      "source_step": 1,
+      "source_object": "ladder",
+      "evaluated_at_step": 2
+    }
+  ],
+  "prior_objects_mean_mae": 12.121913489013696,
+  "prior_objects_mean_changed_fraction": 0.11560744900975466
+}
