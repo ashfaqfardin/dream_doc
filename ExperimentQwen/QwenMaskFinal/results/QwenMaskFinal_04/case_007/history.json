@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "ladder",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      722,
+      317,
+      921,
+      657
+    ],
+    "placed_box": [
+      759,
+      345,
+      884,
+      657
+    ],
+    "local_crop": [
+      528,
+      258,
+      1024,
+      754
+    ],
+    "prompt": "Integrate the pasted ladder naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 7,
+      "step": 1,
+      "object": "ladder",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.04511260986328125,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9938988271531809,
+      "interaction_inside_rectangle": 0.9546338576018941,
+      "changed_fraction_of_image": 0.016099929809570312,
+      "dino_identity_similarity": 0.9447140693664551,
+      "color_histogram_similarity": 0.9684286929094914,
+      "edge_structure_similarity": 0.5286635756492615,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_007/steps/01_ladder_final.png"
+  },
+  {
+    "step": 2,
+    "name": "bicycle",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      103,
+      499,
+      693,
+      790
+    ],
+    "placed_box": [
+      189,
+      523,
+      606,
+      790
+    ],
+    "local_crop": [
+      83,
+      347,
+      712,
+      976
+    ],
+    "prompt": "Integrate the pasted bicycle naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 7,
+      "step": 2,
+      "object": "bicycle",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.08678436279296875,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9609270480837334,
+      "interaction_inside_rectangle": 0.9427032967032967,
+      "changed_fraction_of_image": 0.048473358154296875,
+      "dino_identity_similarity": 0.9246596693992615,
+      "color_histogram_similarity": 0.8437928617486167,
+      "edge_structure_similarity": 0.6940093040466309,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.013987541198730469,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "ladder",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_007/steps/02_bicycle_final.png"
+  },
+  {
+    "step": 3,
+    "name": "hammer",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      789,
+      698,
+      972,
+      790
+    ],
+    "placed_box": [
+      806,
+      706,
+      955,
+      790
+    ],
+    "local_crop": [
+      704,
+      593,
+      1024,
+      913
+    ],
+    "prompt": "Integrate the pasted hammer naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 7,
+      "step": 3,
+      "object": "hammer",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.013377189636230469,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9912774338773214,
+      "interaction_inside_rectangle": 0.8450844799315606,
+      "changed_fraction_of_image": 0.0033893585205078125,
+      "dino_identity_similarity": 0.9788600206375122,
+      "color_histogram_similarity": 0.9761405233047019,
+      "edge_structure_similarity": 0.8164774775505066,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.013987541198730469,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "ladder",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.03374481201171875,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "bicycle",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_007/steps/03_hammer_final.png"
+  }
+]

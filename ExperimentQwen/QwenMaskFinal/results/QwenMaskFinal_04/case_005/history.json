@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "teapot",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      534,
+      21,
+      733,
+      321
+    ],
+    "placed_box": [
+      542,
+      176,
+      725,
+      321
+    ],
+    "local_crop": [
+      474,
+      94,
+      794,
+      414
+    ],
+    "prompt": "Integrate the pasted teapot naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 5,
+      "step": 1,
+      "object": "teapot",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.029183387756347656,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9884834726759316,
+      "interaction_inside_rectangle": 0.8692526388026535,
+      "changed_fraction_of_image": 0.01722431182861328,
+      "dino_identity_similarity": 0.9913482069969177,
+      "color_histogram_similarity": 0.9933801564800416,
+      "edge_structure_similarity": 0.9404225945472717,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_005/steps/01_teapot_final.png"
+  },
+  {
+    "step": 2,
+    "name": "vase",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      125,
+      220,
+      400,
+      496
+    ],
+    "placed_box": [
+      188,
+      243,
+      337,
+      496
+    ],
+    "local_crop": [
+      56,
+      168,
+      469,
+      581
+    ],
+    "prompt": "Integrate the pasted vase naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 5,
+      "step": 2,
+      "object": "vase",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.04254913330078125,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9991152550447476,
+      "interaction_inside_rectangle": 0.9503317195624887,
+      "changed_fraction_of_image": 0.02802562713623047,
+      "dino_identity_similarity": 0.9902234077453613,
+      "color_histogram_similarity": 0.9786812722920842,
+      "edge_structure_similarity": 0.9492072463035583,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.016007423400878906,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "teapot",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_005/steps/02_vase_final.png"
+  },
+  {
+    "step": 3,
+    "name": "fork",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      437,
+      339,
+      661,
+      453
+    ],
+    "placed_box": [
+      448,
+      349,
+      649,
+      453
+    ],
+    "local_crop": [
+      386,
+      243,
+      712,
+      569
+    ],
+    "prompt": "Integrate the pasted fork naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 5,
+      "step": 3,
+      "object": "fork",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.01508331298828125,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9926395939086294,
+      "interaction_inside_rectangle": 0.8615326251896813,
+      "changed_fraction_of_image": 0.003757476806640625,
+      "dino_identity_similarity": 0.9901266098022461,
+      "color_histogram_similarity": 0.9783621801348391,
+      "edge_structure_similarity": 0.8174311518669128,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.016007423400878906,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "teapot",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.0281829833984375,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "vase",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_005/steps/03_fork_final.png"
+  }
+]

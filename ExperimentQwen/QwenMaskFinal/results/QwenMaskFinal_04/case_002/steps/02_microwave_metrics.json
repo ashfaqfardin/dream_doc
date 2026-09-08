@@ -1,0 +1,31 @@
+{
+  "case_id": 2,
+  "step": 2,
+  "object": "microwave",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.018674850463867188,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9997980002019998,
+  "interaction_inside_rectangle": 0.7710652640179757,
+  "changed_fraction_of_image": 0.009442329406738281,
+  "dino_identity_similarity": 0.9459939002990723,
+  "color_histogram_similarity": 0.9853088049611989,
+  "edge_structure_similarity": 0.8521680235862732,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.007046699523925781,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "toaster",
+      "evaluated_at_step": 2
+    }
+  ],
+  "prior_objects_mean_mae": 0.0,
+  "prior_objects_mean_changed_fraction": 0.0
+}

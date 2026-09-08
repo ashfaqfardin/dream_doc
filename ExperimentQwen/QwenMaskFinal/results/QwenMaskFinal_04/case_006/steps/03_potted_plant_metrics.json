@@ -1,0 +1,40 @@
+{
+  "case_id": 6,
+  "step": 3,
+  "object": "potted plant",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.023693084716796875,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.998684967535136,
+  "interaction_inside_rectangle": 0.899090323619385,
+  "changed_fraction_of_image": 0.011603355407714844,
+  "dino_identity_similarity": 0.9504611492156982,
+  "color_histogram_similarity": 0.9322449617939207,
+  "edge_structure_similarity": 0.7856898903846741,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.0020647048950195312,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "toothbrush",
+      "evaluated_at_step": 3
+    },
+    {
+      "visible_fraction": 0.028540611267089844,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 2,
+      "source_object": "bucket",
+      "evaluated_at_step": 3
+    }
+  ],
+  "prior_objects_mean_mae": 0.0,
+  "prior_objects_mean_changed_fraction": 0.0
+}

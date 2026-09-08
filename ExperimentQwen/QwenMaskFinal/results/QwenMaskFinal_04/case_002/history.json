@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "toaster",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      162,
+      445,
+      298,
+      537
+    ],
+    "placed_box": [
+      177,
+      453,
+      282,
+      537
+    ],
+    "local_crop": [
+      70,
+      340,
+      390,
+      660
+    ],
+    "prompt": "Integrate the pasted toaster naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 2,
+      "step": 1,
+      "object": "toaster",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.014844894409179688,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9992086520706938,
+      "interaction_inside_rectangle": 0.7928176795580111,
+      "changed_fraction_of_image": 0.0072307586669921875,
+      "dino_identity_similarity": 0.9624350666999817,
+      "color_histogram_similarity": 0.976340431318658,
+      "edge_structure_similarity": 0.7754336595535278,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_002/steps/01_toaster_final.png"
+  },
+  {
+    "step": 2,
+    "name": "microwave",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      599,
+      445,
+      802,
+      537
+    ],
+    "placed_box": [
+      634,
+      453,
+      767,
+      537
+    ],
+    "local_crop": [
+      540,
+      340,
+      860,
+      660
+    ],
+    "prompt": "Integrate the pasted microwave naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 2,
+      "step": 2,
+      "object": "microwave",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.018674850463867188,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9997980002019998,
+      "interaction_inside_rectangle": 0.7710652640179757,
+      "changed_fraction_of_image": 0.009442329406738281,
+      "dino_identity_similarity": 0.9459939002990723,
+      "color_histogram_similarity": 0.9853088049611989,
+      "edge_structure_similarity": 0.8521680235862732,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.007046699523925781,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "toaster",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_002/steps/02_microwave_final.png"
+  },
+  {
+    "step": 3,
+    "name": "oven",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      360,
+      430,
+      537,
+      537
+    ],
+    "placed_box": [
+      367,
+      441,
+      529,
+      537
+    ],
+    "local_crop": [
+      288,
+      334,
+      608,
+      654
+    ],
+    "prompt": "Integrate the pasted oven naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 2,
+      "step": 3,
+      "object": "oven",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.020325660705566406,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.8797731266975555,
+      "interaction_inside_rectangle": 0.828273823488012,
+      "changed_fraction_of_image": 0.011938095092773438,
+      "dino_identity_similarity": 0.6572812795639038,
+      "color_histogram_similarity": 0.9300980941147629,
+      "edge_structure_similarity": 0.46025779843330383,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.007046699523925781,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "toaster",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.009745597839355469,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "microwave",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_002/steps/03_oven_final.png"
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "case_id": 4,
+  "step": 1,
+  "object": "dresser",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.05694293975830078,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 1.0,
+  "interaction_inside_rectangle": 0.976686931618349,
+  "changed_fraction_of_image": 0.03989696502685547,
+  "dino_identity_similarity": 0.9973829388618469,
+  "color_histogram_similarity": 0.9975128868263177,
+  "edge_structure_similarity": 0.976317822933197,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

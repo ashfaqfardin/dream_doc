@@ -1,0 +1,40 @@
+{
+  "case_id": 2,
+  "step": 3,
+  "object": "oven",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.020325660705566406,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.8797731266975555,
+  "interaction_inside_rectangle": 0.828273823488012,
+  "changed_fraction_of_image": 0.011938095092773438,
+  "dino_identity_similarity": 0.6572812795639038,
+  "color_histogram_similarity": 0.9300980941147629,
+  "edge_structure_similarity": 0.46025779843330383,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.007046699523925781,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "toaster",
+      "evaluated_at_step": 3
+    },
+    {
+      "visible_fraction": 0.009745597839355469,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 2,
+      "source_object": "microwave",
+      "evaluated_at_step": 3
+    }
+  ],
+  "prior_objects_mean_mae": 0.0,
+  "prior_objects_mean_changed_fraction": 0.0
+}

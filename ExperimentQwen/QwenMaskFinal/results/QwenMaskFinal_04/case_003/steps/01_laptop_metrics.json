@@ -1,0 +1,21 @@
+{
+  "case_id": 3,
+  "step": 1,
+  "object": "laptop",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.02449512481689453,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.999552171965965,
+  "interaction_inside_rectangle": 0.8566478489390695,
+  "changed_fraction_of_image": 0.012777328491210938,
+  "dino_identity_similarity": 0.9729076623916626,
+  "color_histogram_similarity": 0.9961743366132492,
+  "edge_structure_similarity": 0.916416585445404,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

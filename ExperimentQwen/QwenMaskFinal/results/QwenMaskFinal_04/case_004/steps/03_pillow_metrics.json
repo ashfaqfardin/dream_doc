@@ -1,0 +1,40 @@
+{
+  "case_id": 4,
+  "step": 3,
+  "object": "pillow",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.046753883361816406,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9999681010558551,
+  "interaction_inside_rectangle": 0.9040081591024988,
+  "changed_fraction_of_image": 0.02989673614501953,
+  "dino_identity_similarity": 0.9967713952064514,
+  "color_histogram_similarity": 0.9980306705404747,
+  "edge_structure_similarity": 0.9472852349281311,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.039855003356933594,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "dresser",
+      "evaluated_at_step": 3
+    },
+    {
+      "visible_fraction": 0.10375785827636719,
+      "cross_turn_mae": 0.0207816320152944,
+      "cross_turn_psnr": 58.831371887049364,
+      "cross_turn_changed_fraction": 0.00034007978087832497,
+      "source_step": 2,
+      "source_object": "bed",
+      "evaluated_at_step": 3
+    }
+  ],
+  "prior_objects_mean_mae": 0.0103908160076472,
+  "prior_objects_mean_changed_fraction": 0.00017003989043916248
+}

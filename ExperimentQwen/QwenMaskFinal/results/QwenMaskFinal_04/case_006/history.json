@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "toothbrush",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      662,
+      552,
+      861,
+      611
+    ],
+    "placed_box": [
+      670,
+      584,
+      853,
+      611
+    ],
+    "local_crop": [
+      602,
+      442,
+      922,
+      762
+    ],
+    "prompt": "Integrate the pasted toothbrush naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 6,
+      "step": 1,
+      "object": "toothbrush",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.011824607849121094,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9558260869565217,
+      "interaction_inside_rectangle": 0.5522219533833373,
+      "changed_fraction_of_image": 0.0027418136596679688,
+      "dino_identity_similarity": 0.9381591081619263,
+      "color_histogram_similarity": 0.9538161831378726,
+      "edge_structure_similarity": 0.8993000388145447,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_006/steps/01_toothbrush_final.png"
+  },
+  {
+    "step": 2,
+    "name": "bucket",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      195,
+      724,
+      400,
+      966
+    ],
+    "placed_box": [
+      203,
+      762,
+      391,
+      966
+    ],
+    "local_crop": [
+      125,
+      680,
+      469,
+      1024
+    ],
+    "prompt": "Integrate the pasted bucket naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 6,
+      "step": 2,
+      "object": "bucket",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.04267406463623047,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 1.0,
+      "interaction_inside_rectangle": 0.9119270565624511,
+      "changed_fraction_of_image": 0.028700828552246094,
+      "dino_identity_similarity": 0.985662579536438,
+      "color_histogram_similarity": 0.9978189746316767,
+      "edge_structure_similarity": 0.9798235297203064,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.0020647048950195312,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "toothbrush",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_006/steps/02_bucket_final.png"
+  },
+  {
+    "step": 3,
+    "name": "potted plant",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      195,
+      461,
+      378,
+      611
+    ],
+    "placed_box": [
+      210,
+      473,
+      363,
+      611
+    ],
+    "local_crop": [
+      126,
+      387,
+      446,
+      707
+    ],
+    "prompt": "Integrate the pasted potted plant naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 6,
+      "step": 3,
+      "object": "potted plant",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.023693084716796875,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.998684967535136,
+      "interaction_inside_rectangle": 0.899090323619385,
+      "changed_fraction_of_image": 0.011603355407714844,
+      "dino_identity_similarity": 0.9504611492156982,
+      "color_histogram_similarity": 0.9322449617939207,
+      "edge_structure_similarity": 0.7856898903846741,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.0020647048950195312,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "toothbrush",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.028540611267089844,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "bucket",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_006/steps/03_potted_plant_final.png"
+  }
+]

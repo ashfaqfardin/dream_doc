@@ -1,0 +1,21 @@
+{
+  "case_id": 10,
+  "step": 1,
+  "object": "table",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.046993255615234375,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9917296890893813,
+  "interaction_inside_rectangle": 0.9772708823768163,
+  "changed_fraction_of_image": 0.02156352996826172,
+  "dino_identity_similarity": 0.9682209491729736,
+  "color_histogram_similarity": 0.921256955538419,
+  "edge_structure_similarity": 0.7537348866462708,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

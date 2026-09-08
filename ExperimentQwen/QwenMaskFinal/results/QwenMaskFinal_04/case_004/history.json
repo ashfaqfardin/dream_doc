@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "dresser",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      756,
+      483,
+      998,
+      766
+    ],
+    "placed_box": [
+      770,
+      506,
+      983,
+      766
+    ],
+    "local_crop": [
+      601,
+      430,
+      1024,
+      853
+    ],
+    "prompt": "Integrate the pasted dresser naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 4,
+      "step": 1,
+      "object": "dresser",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.05694293975830078,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 1.0,
+      "interaction_inside_rectangle": 0.976686931618349,
+      "changed_fraction_of_image": 0.03989696502685547,
+      "dino_identity_similarity": 0.9973829388618469,
+      "color_histogram_similarity": 0.9975128868263177,
+      "edge_structure_similarity": 0.976317822933197,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_004/steps/01_dresser_final.png"
+  },
+  {
+    "step": 2,
+    "name": "bed",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      51,
+      462,
+      704,
+      865
+    ],
+    "placed_box": [
+      104,
+      495,
+      650,
+      865
+    ],
+    "local_crop": [
+      0,
+      215,
+      809,
+      1024
+    ],
+    "prompt": "Integrate the pasted bed naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 4,
+      "step": 2,
+      "object": "bed",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.13747692108154297,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9998626791301704,
+      "interaction_inside_rectangle": 0.9924733793486178,
+      "changed_fraction_of_image": 0.0972280502319336,
+      "dino_identity_similarity": 0.9992462992668152,
+      "color_histogram_similarity": 0.9970351299526198,
+      "edge_structure_similarity": 0.9798219799995422,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.039855003356933594,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "dresser",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_004/steps/02_bed_final.png"
+  },
+  {
+    "step": 3,
+    "name": "pillow",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      439,
+      775,
+      732,
+      956
+    ],
+    "placed_box": [
+      466,
+      790,
+      705,
+      956
+    ],
+    "local_crop": [
+      396,
+      645,
+      775,
+      1024
+    ],
+    "prompt": "Integrate the pasted pillow naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 4,
+      "step": 3,
+      "object": "pillow",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.046753883361816406,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9999681010558551,
+      "interaction_inside_rectangle": 0.9040081591024988,
+      "changed_fraction_of_image": 0.02989673614501953,
+      "dino_identity_similarity": 0.9967713952064514,
+      "color_histogram_similarity": 0.9980306705404747,
+      "edge_structure_similarity": 0.9472852349281311,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.039855003356933594,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "dresser",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.10375785827636719,
+          "cross_turn_mae": 0.0207816320152944,
+          "cross_turn_psnr": 58.831371887049364,
+          "cross_turn_changed_fraction": 0.00034007978087832497,
+          "source_step": 2,
+          "source_object": "bed",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.0103908160076472,
+      "prior_objects_mean_changed_fraction": 0.00017003989043916248
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_004/steps/03_pillow_final.png"
+  }
+]

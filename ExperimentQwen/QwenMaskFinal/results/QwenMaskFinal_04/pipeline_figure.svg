@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1050" viewBox="0 0 1800 1050">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16803a"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      .title { font: 700 36px Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 19px Arial, Helvetica, sans-serif; fill: #475569; }
+      .stage { font: 700 23px Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .nodeTitle { font: 700 18px Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .nodeText { font: 400 15px Arial, Helvetica, sans-serif; fill: #475569; }
+      .math { font: italic 18px Georgia, serif; fill: #1e293b; }
+      .small { font: 400 14px Arial, Helvetica, sans-serif; fill: #64748b; }
+      .metric { font: 600 16px Arial, Helvetica, sans-serif; fill: #1f2937; }
+      .arrow { fill: none; stroke: #334155; stroke-width: 3; marker-end: url(#arrow); }
+      .dashed { fill: none; stroke: #64748b; stroke-width: 2.5; stroke-dasharray: 9 8; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1050" fill="#ffffff"/>
+  <text x="900" y="58" text-anchor="middle" class="title">Training-Free Local Collage Harmonization</text>
+  <text x="900" y="91" text-anchor="middle" class="subtitle">Reference-guided sequential insertion with hard non-disturbance</text>
+
+  <!-- Inputs -->
+  <rect x="55" y="150" width="250" height="125" rx="18" fill="#e8f1ff" stroke="#2563eb" stroke-width="2" filter="url(#shadow)"/>
+  <text x="180" y="190" text-anchor="middle" class="nodeTitle">Current scene</text>
+  <text x="180" y="224" text-anchor="middle" class="math">Iᵢ₋₁</text>
+  <text x="180" y="252" text-anchor="middle" class="nodeText">Previous editing turn</text>
+
+  <rect x="55" y="315" width="250" height="125" rx="18" fill="#e8f1ff" stroke="#2563eb" stroke-width="2" filter="url(#shadow)"/>
+  <text x="180" y="355" text-anchor="middle" class="nodeTitle">Placement constraint</text>
+  <text x="180" y="389" text-anchor="middle" class="math">Lᵢ</text>
+  <text x="180" y="417" text-anchor="middle" class="nodeText">User-labelled rectangle</text>
+
+  <rect x="55" y="480" width="250" height="125" rx="18" fill="#e8f1ff" stroke="#2563eb" stroke-width="2" filter="url(#shadow)"/>
+  <text x="180" y="520" text-anchor="middle" class="nodeTitle">Reference object</text>
+  <text x="180" y="554" text-anchor="middle" class="math">Oᵢ</text>
+  <text x="180" y="582" text-anchor="middle" class="nodeText">Identity source image</text>
+
+  <!-- Stage 1 -->
+  <rect x="355" y="125" width="490" height="505" rx="24" fill="#fffbf4" stroke="#d97706" stroke-width="2"/>
+  <rect x="355" y="125" width="490" height="58" rx="24" fill="#fff1d6"/>
+  <text x="600" y="162" text-anchor="middle" class="stage">1. Deterministic preparation</text>
+
+  <rect x="410" y="220" width="180" height="92" rx="14" fill="#fff4e5" stroke="#d97706" stroke-width="2"/>
+  <text x="500" y="256" text-anchor="middle" class="nodeTitle">Recover region</text>
+  <text x="500" y="284" text-anchor="middle" class="nodeText">Rectangle from label</text>
+
+  <rect x="610" y="220" width="180" height="92" rx="14" fill="#fff4e5" stroke="#d97706" stroke-width="2"/>
+  <text x="700" y="256" text-anchor="middle" class="nodeTitle">RMBG-2.0</text>
+  <text x="700" y="284" text-anchor="middle" class="nodeText">RGB + alpha cutout</text>
+
+  <rect x="500" y="350" width="200" height="92" rx="14" fill="#fff4e5" stroke="#d97706" stroke-width="2"/>
+  <text x="600" y="386" text-anchor="middle" class="nodeTitle">Scale and anchor</text>
+  <text x="600" y="414" text-anchor="middle" class="nodeText">Fit within placement</text>
+
+  <rect x="410" y="480" width="180" height="95" rx="14" fill="#fff4e5" stroke="#d97706" stroke-width="2"/>
+  <text x="500" y="516" text-anchor="middle" class="nodeTitle">Compose collage</text>
+  <text x="500" y="545" text-anchor="middle" class="math">Cᵢ = Iᵢ₋₁ + Oᵢ</text>
+
+  <rect x="610" y="480" width="180" height="95" rx="14" fill="#fff4e5" stroke="#d97706" stroke-width="2"/>
+  <text x="700" y="516" text-anchor="middle" class="nodeTitle">Interaction mask</text>
+  <text x="700" y="545" text-anchor="middle" class="math">Mᵢ</text>
+
+  <!-- Stage 2 -->
+  <rect x="895" y="125" width="350" height="505" rx="24" fill="#fbf7ff" stroke="#7e22ce" stroke-width="2"/>
+  <rect x="895" y="125" width="350" height="58" rx="24" fill="#f3e8ff"/>
+  <text x="1070" y="162" text-anchor="middle" class="stage">2. Local harmonization</text>
+
+  <rect x="955" y="230" width="230" height="92" rx="14" fill="#fff4e5" stroke="#d97706" stroke-width="2"/>
+  <text x="1070" y="266" text-anchor="middle" class="nodeTitle">Square context crop</text>
+  <text x="1070" y="294" text-anchor="middle" class="nodeText">Object + nearby scene</text>
+
+  <rect x="945" y="370" width="250" height="120" rx="18" fill="#f3e8ff" stroke="#7e22ce" stroke-width="3" filter="url(#shadow)"/>
+  <text x="1070" y="410" text-anchor="middle" class="nodeTitle">Frozen Qwen inpaint</text>
+  <text x="1070" y="440" text-anchor="middle" class="nodeText">Local generative pass</text>
+  <text x="1070" y="468" text-anchor="middle" class="small">8 diffusion steps</text>
+
+  <rect x="955" y="535" width="230" height="70" rx="14" fill="#fff4e5" stroke="#d97706" stroke-width="2"/>
+  <text x="1070" y="578" text-anchor="middle" class="nodeTitle">Restore crop size</text>
+
+  <!-- Stage 3 -->
+  <rect x="1295" y="125" width="450" height="505" rx="24" fill="#f5fcf7" stroke="#16803a" stroke-width="2"/>
+  <rect x="1295" y="125" width="450" height="58" rx="24" fill="#e9f8ef"/>
+  <text x="1520" y="162" text-anchor="middle" class="stage">3. Hard spatial preservation</text>
+
+  <rect x="1380" y="235" width="280" height="82" rx="14" fill="#e9f8ef" stroke="#16803a" stroke-width="2"/>
+  <text x="1520" y="270" text-anchor="middle" class="nodeTitle">Inward mask feather</text>
+  <text x="1520" y="297" text-anchor="middle" class="nodeText">Zero support outside Mᵢ</text>
+
+  <rect x="1360" y="365" width="320" height="115" rx="16" fill="#e9f8ef" stroke="#16803a" stroke-width="2"/>
+  <text x="1520" y="402" text-anchor="middle" class="nodeTitle">Masked RGB composition</text>
+  <text x="1520" y="437" text-anchor="middle" class="math">Iᵢ = (1 − Mᵢ) Iᵢ₋₁ + Mᵢ Îᵢ</text>
+  <text x="1520" y="462" text-anchor="middle" class="small">Exact background restoration</text>
+
+  <rect x="1395" y="530" width="250" height="76" rx="38" fill="#dff6e7" stroke="#16803a" stroke-width="3" filter="url(#shadow)"/>
+  <text x="1520" y="565" text-anchor="middle" class="nodeTitle">Edited scene Iᵢ</text>
+  <text x="1520" y="589" text-anchor="middle" class="small">Input to the next turn</text>
+
+  <!-- Main arrows -->
+  <path d="M305 212 H330 V527 H410" class="arrow"/>
+  <path d="M305 377 H385 V266 H410" class="arrow"/>
+  <path d="M305 542 H340 V266 H610" class="arrow"/>
+  <path d="M590 266 H610" class="arrow"/>
+  <path d="M500 312 V350" class="arrow"/>
+  <path d="M700 312 V330 H650 V350" class="arrow"/>
+  <path d="M600 442 V462 H500 V480" class="arrow"/>
+  <path d="M600 442 V462 H700 V480" class="arrow"/>
+  <path d="M790 527 H860 V276 H955" class="arrow"/>
+  <path d="M590 527 H875 V300 H955" class="arrow"/>
+  <path d="M1070 322 V370" class="arrow"/>
+  <path d="M1070 490 V535" class="arrow"/>
+  <path d="M1185 570 H1260 V276 H1380" class="arrow"/>
+  <path d="M790 527 H1270 V276 H1380" class="arrow"/>
+  <path d="M1520 317 V365" class="arrow"/>
+  <path d="M1520 480 V530" class="arrow"/>
+  <path d="M305 212 H330 V650 H1325 V422 H1360" class="arrow"/>
+
+  <!-- Loop -->
+  <path d="M1645 568 H1730 V690 H180 V620" class="dashed"/>
+  <text x="935" y="682" text-anchor="middle" class="small">Repeat for object Oᵢ₊₁ while preserving all content outside the next interaction mask</text>
+
+  <!-- Evaluation -->
+  <rect x="245" y="755" width="1310" height="220" rx="24" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+  <text x="900" y="798" text-anchor="middle" class="stage">Evaluation at every editing turn</text>
+
+  <rect x="300" y="830" width="260" height="100" rx="15" fill="#f3f4f6" stroke="#4b5563"/>
+  <text x="430" y="867" text-anchor="middle" class="metric">Object fidelity</text>
+  <text x="430" y="896" text-anchor="middle" class="nodeText">DINO · colour · edges</text>
+
+  <rect x="595" y="830" width="260" height="100" rx="15" fill="#f3f4f6" stroke="#4b5563"/>
+  <text x="725" y="867" text-anchor="middle" class="metric">Spatial localization</text>
+  <text x="725" y="896" text-anchor="middle" class="nodeText">Support · changed pixels</text>
+
+  <rect x="890" y="830" width="260" height="100" rx="15" fill="#f3f4f6" stroke="#4b5563"/>
+  <text x="1020" y="867" text-anchor="middle" class="metric">Non-disturbance</text>
+  <text x="1020" y="896" text-anchor="middle" class="nodeText">Outside MAE · PSNR</text>
+
+  <rect x="1185" y="830" width="310" height="100" rx="15" fill="#f3f4f6" stroke="#4b5563"/>
+  <text x="1340" y="867" text-anchor="middle" class="metric">Cross-turn stability</text>
+  <text x="1340" y="896" text-anchor="middle" class="nodeText">Prior-object drift</text>
+
+  <path d="M1520 606 V720 H430 V830" class="dashed"/>
+  <path d="M1520 606 V720 H725 V830" class="dashed"/>
+  <path d="M1520 606 V720 H1020 V830" class="dashed"/>
+  <path d="M1520 606 V720 H1340 V830" class="dashed"/>
+
+  <text x="900" y="1020" text-anchor="middle" class="small">Blue: inputs · Orange: deterministic operations · Purple: generative model · Green: hard preservation · Grey: evaluation</text>
+</svg>

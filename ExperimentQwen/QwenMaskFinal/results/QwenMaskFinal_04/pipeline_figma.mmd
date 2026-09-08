@@ -1,0 +1,69 @@
+flowchart LR
+    scene[/Current scene I(i-1)/]
+    placement[/Placement constraint L(i)/]
+    reference[/Reference object O(i)/]
+
+    subgraph prepare [Deterministic preparation]
+        rectangle[Recover rectangle]
+        cutout[RMBG foreground]
+        align[Scale and anchor]
+        collage[Compose collage C(i)]
+        support[Build interaction mask M(i)]
+    end
+
+    subgraph harmonize [Local generative harmonization]
+        crop[Square context crop]
+        qwen[Frozen Qwen inpaint]
+        restore[Restore crop size]
+    end
+
+    subgraph preserve [Hard spatial preservation]
+        feather[Inward mask feather]
+        composite[Masked RGB composition]
+        edited[/Edited scene I(i)/]
+    end
+
+    subgraph evaluate [Evaluation]
+        fidelity[Object fidelity]
+        spatial[Spatial localization]
+        background[Non-disturbance]
+        temporal[Cross-turn stability]
+    end
+
+    placement --> rectangle
+    reference --> cutout
+    rectangle --> align
+    cutout --> align
+    scene --> collage
+    align --> collage
+    align --> support
+    collage --> crop
+    support --> crop
+    crop ==> qwen
+    qwen --> restore
+    support --> feather
+    restore --> composite
+    feather --> composite
+    scene --> composite
+    composite ==> edited
+    edited -. Next object .-> scene
+
+    edited --> fidelity
+    reference --> fidelity
+    edited --> spatial
+    placement --> spatial
+    scene --> background
+    edited --> background
+    edited --> temporal
+
+    classDef input fill:#E8F1FF,stroke:#2563EB,color:#172554,stroke-width:1.5px
+    classDef prep fill:#FFF4E5,stroke:#D97706,color:#451A03,stroke-width:1.5px
+    classDef model fill:#F3E8FF,stroke:#7E22CE,color:#3B0764,stroke-width:2px
+    classDef preserve fill:#E9F8EF,stroke:#16803A,color:#052E16,stroke-width:1.5px
+    classDef metric fill:#F3F4F6,stroke:#4B5563,color:#111827,stroke-width:1px
+
+    class scene,placement,reference input
+    class rectangle,cutout,align,collage,support,crop,restore prep
+    class qwen model
+    class feather,composite,edited preserve
+    class fidelity,spatial,background,temporal metric

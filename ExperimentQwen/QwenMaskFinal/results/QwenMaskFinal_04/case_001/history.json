@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "couch",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      128,
+      554,
+      775,
+      849
+    ],
+    "placed_box": [
+      154,
+      619,
+      749,
+      849
+    ],
+    "local_crop": [
+      12,
+      146,
+      890,
+      1024
+    ],
+    "prompt": "Integrate the pasted couch naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 1,
+      "step": 1,
+      "object": "couch",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.14825820922851562,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9995934925625731,
+      "interaction_inside_rectangle": 0.9293901968351987,
+      "changed_fraction_of_image": 0.11495494842529297,
+      "dino_identity_similarity": 0.9997164607048035,
+      "color_histogram_similarity": 0.9989404364746707,
+      "edge_structure_similarity": 0.9948300123214722,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_001/steps/01_couch_final.png"
+  },
+  {
+    "step": 2,
+    "name": "floor lamp",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      792,
+      554,
+      959,
+      849
+    ],
+    "placed_box": [
+      818,
+      578,
+      933,
+      849
+    ],
+    "local_crop": [
+      586,
+      500,
+      1024,
+      938
+    ],
+    "prompt": "Integrate the pasted floor lamp naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 1,
+      "step": 2,
+      "object": "floor lamp",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.031116485595703125,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 1.0,
+      "interaction_inside_rectangle": 0.9378754444035797,
+      "changed_fraction_of_image": 0.010333061218261719,
+      "dino_identity_similarity": 0.9944319725036621,
+      "color_histogram_similarity": 0.9886119647424655,
+      "edge_structure_similarity": 0.9708776473999023,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.11514472961425781,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "couch",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_001/steps/02_floor_lamp_final.png"
+  },
+  {
+    "step": 3,
+    "name": "potted plant",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      53,
+      782,
+      229,
+      945
+    ],
+    "placed_box": [
+      60,
+      800,
+      221,
+      945
+    ],
+    "local_crop": [
+      0,
+      704,
+      320,
+      1024
+    ],
+    "prompt": "Integrate the pasted potted plant naturally with the surrounding scene. Preserve its design, colour, material, position and overall structure.",
+    "metrics": {
+      "case_id": 1,
+      "step": 3,
+      "object": "potted plant",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.025508880615234375,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9983191993276798,
+      "interaction_inside_rectangle": 0.8939733811873785,
+      "changed_fraction_of_image": 0.012482643127441406,
+      "dino_identity_similarity": 0.965743899345398,
+      "color_histogram_similarity": 0.9411684721784366,
+      "edge_structure_similarity": 0.8734267950057983,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.11364364624023438,
+          "cross_turn_mae": 0.03077551385765276,
+          "cross_turn_psnr": 57.678625931353,
+          "cross_turn_changed_fraction": 0.0004363734013628277,
+          "source_step": 1,
+          "source_object": "couch",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.010071754455566406,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "floor lamp",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.01538775692882638,
+      "prior_objects_mean_changed_fraction": 0.00021818670068141384
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs/case_001/steps/03_potted_plant_final.png"
+  }
+]

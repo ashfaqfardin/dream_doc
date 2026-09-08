@@ -1,0 +1,21 @@
+{
+  "case_id": 5,
+  "step": 1,
+  "object": "teapot",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.029183387756347656,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9884834726759316,
+  "interaction_inside_rectangle": 0.8692526388026535,
+  "changed_fraction_of_image": 0.01722431182861328,
+  "dino_identity_similarity": 0.9913482069969177,
+  "color_histogram_similarity": 0.9933801564800416,
+  "edge_structure_similarity": 0.9404225945472717,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}
