@@ -1,0 +1,40 @@
+{
+  "case_id": 9,
+  "step": 3,
+  "object": "chair",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.03202247619628906,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9998437744102484,
+  "interaction_inside_rectangle": 0.9414795401751147,
+  "changed_fraction_of_image": 0.012208938598632812,
+  "dino_identity_similarity": 0.9913932681083679,
+  "color_histogram_similarity": 0.9866708673755831,
+  "edge_structure_similarity": 0.8585506677627563,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.02162456512451172,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "basket",
+      "evaluated_at_step": 3
+    },
+    {
+      "visible_fraction": 0.020920753479003906,
+      "cross_turn_mae": 0.24824117548738053,
+      "cross_turn_psnr": 46.66907076459693,
+      "cross_turn_changed_fraction": 0.006792177599489447,
+      "source_step": 2,
+      "source_object": "table",
+      "evaluated_at_step": 3
+    }
+  ],
+  "prior_objects_mean_mae": 0.12412058774369027,
+  "prior_objects_mean_changed_fraction": 0.0033960887997447234
+}

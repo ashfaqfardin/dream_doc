@@ -1,0 +1,40 @@
+{
+  "case_id": 1,
+  "step": 3,
+  "object": "potted plant",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.025508880615234375,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9978607991443197,
+  "interaction_inside_rectangle": 0.8939733811873785,
+  "changed_fraction_of_image": 0.012482643127441406,
+  "dino_identity_similarity": 0.9640473127365112,
+  "color_histogram_similarity": 0.9293659918842465,
+  "edge_structure_similarity": 0.8753851652145386,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.11364364624023438,
+      "cross_turn_mae": 0.053494903382453315,
+      "cross_turn_psnr": 54.702616029950676,
+      "cross_turn_changed_fraction": 0.0008391796180054379,
+      "source_step": 1,
+      "source_object": "couch",
+      "evaluated_at_step": 3
+    },
+    {
+      "visible_fraction": 0.010071754455566406,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 2,
+      "source_object": "floor lamp",
+      "evaluated_at_step": 3
+    }
+  ],
+  "prior_objects_mean_mae": 0.026747451691226658,
+  "prior_objects_mean_changed_fraction": 0.0004195898090027189
+}

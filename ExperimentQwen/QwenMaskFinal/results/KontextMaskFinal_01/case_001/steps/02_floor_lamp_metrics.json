@@ -1,0 +1,31 @@
+{
+  "case_id": 1,
+  "step": 2,
+  "object": "floor lamp",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.031116485595703125,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9999085588880761,
+  "interaction_inside_rectangle": 0.9378754444035797,
+  "changed_fraction_of_image": 0.01042938232421875,
+  "dino_identity_similarity": 0.9935876727104187,
+  "color_histogram_similarity": 0.9840784965310748,
+  "edge_structure_similarity": 0.969946563243866,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.11514472961425781,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "couch",
+      "evaluated_at_step": 2
+    }
+  ],
+  "prior_objects_mean_mae": 0.0,
+  "prior_objects_mean_changed_fraction": 0.0
+}

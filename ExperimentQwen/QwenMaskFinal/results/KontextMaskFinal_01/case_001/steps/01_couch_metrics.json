@@ -1,0 +1,21 @@
+{
+  "case_id": 1,
+  "step": 1,
+  "object": "couch",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.14825820922851562,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9989633438381158,
+  "interaction_inside_rectangle": 0.9293901968351987,
+  "changed_fraction_of_image": 0.11499404907226562,
+  "dino_identity_similarity": 0.9996041655540466,
+  "color_histogram_similarity": 0.9841565494448329,
+  "edge_structure_similarity": 0.9967575669288635,
+  "prior_object_stability": [],
+  "prior_objects_mean_mae": null,
+  "prior_objects_mean_changed_fraction": null
+}

@@ -1,8 +1,10 @@
-# ExperimentQwen Failure Analysis: E1–E13
+# ExperimentQwen Project Experiment Failure Analysis: E1--E15
 
-This document records observed failures, including unsuccessful research ideas
-and important runtime failures. It reflects the actual experiment history and
-user feedback; it does not treat an unmeasured hypothesis as a successful result.
+This document records failures observed in experiments implemented for this
+project, including architectural findings and important runtime failures. It
+maps the evidence to the E1--E15 project sequence and does not treat an
+unmeasured hypothesis as a successful result or an internal experiment as an
+external baseline.
 
 ======== E1 failure ========
 

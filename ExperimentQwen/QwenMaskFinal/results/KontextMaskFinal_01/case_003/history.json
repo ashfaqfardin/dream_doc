@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "laptop",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      601,
+      412,
+      809,
+      546
+    ],
+    "placed_box": [
+      615,
+      423,
+      795,
+      546
+    ],
+    "local_crop": [
+      545,
+      330,
+      865,
+      650
+    ],
+    "prompt": "Integrate the pasted laptop naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked laptop. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 3,
+      "step": 1,
+      "object": "laptop",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.02449512481689453,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 1.0,
+      "interaction_inside_rectangle": 0.8566478489390695,
+      "changed_fraction_of_image": 0.012637138366699219,
+      "dino_identity_similarity": 0.9591208696365356,
+      "color_histogram_similarity": 0.9901364739517976,
+      "edge_structure_similarity": 0.9188886880874634,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_003/steps/01_laptop_final.png"
+  },
+  {
+    "step": 2,
+    "name": "clock",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      393,
+      62,
+      631,
+      297
+    ],
+    "placed_box": [
+      403,
+      81,
+      620,
+      297
+    ],
+    "local_crop": [
+      331,
+      14,
+      692,
+      375
+    ],
+    "prompt": "Integrate the pasted clock naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked clock. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 3,
+      "step": 2,
+      "object": "clock",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.05085277557373047,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 1.0,
+      "interaction_inside_rectangle": 0.9260731766779814,
+      "changed_fraction_of_image": 0.034966468811035156,
+      "dino_identity_similarity": 0.9919294118881226,
+      "color_histogram_similarity": 0.9428275053268834,
+      "edge_structure_similarity": 0.9124981760978699,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.012807846069335938,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "laptop",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_003/steps/02_clock_final.png"
+  },
+  {
+    "step": 3,
+    "name": "chair",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      264,
+      412,
+      568,
+      888
+    ],
+    "placed_box": [
+      276,
+      503,
+      555,
+      888
+    ],
+    "local_crop": [
+      116,
+      402,
+      714,
+      1000
+    ],
+    "prompt": "Integrate the pasted chair naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked chair. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 3,
+      "step": 3,
+      "object": "chair",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.07891368865966797,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.999974682262393,
+      "interaction_inside_rectangle": 0.9820658150748668,
+      "changed_fraction_of_image": 0.03766822814941406,
+      "dino_identity_similarity": 0.9972501397132874,
+      "color_histogram_similarity": 0.9843526618013795,
+      "edge_structure_similarity": 0.9908834099769592,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.012807846069335938,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "laptop",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.035236358642578125,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "clock",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_003/steps/03_chair_final.png"
+  }
+]

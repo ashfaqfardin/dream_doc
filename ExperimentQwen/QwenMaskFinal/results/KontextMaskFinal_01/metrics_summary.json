@@ -1,0 +1,155 @@
+{
+  "case_id": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 5.5,
+    "std": 2.8722813232690143,
+    "min": 1.0,
+    "max": 10.0
+  },
+  "step": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 2.0,
+    "std": 0.816496580927726,
+    "min": 1.0,
+    "max": 3.0
+  },
+  "allowed_change_fraction": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.04286181131998698,
+    "std": 0.032398825146517436,
+    "min": 0.011824607849121094,
+    "max": 0.14825820922851562
+  },
+  "changed_fraction_of_image": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.023151938120524088,
+    "std": 0.024904592638691204,
+    "min": 0.0021419525146484375,
+    "max": 0.11499404907226562
+  },
+  "changed_pixels_inside_interaction": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 1.0,
+    "std": 0.0,
+    "min": 1.0,
+    "max": 1.0
+  },
+  "changed_pixels_inside_placement_rectangle": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.999381926140227,
+    "std": 0.0017244903221491075,
+    "min": 0.9907735221542753,
+    "max": 1.0
+  },
+  "color_histogram_similarity": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.9675669728816667,
+    "std": 0.02728761230264156,
+    "min": 0.8635983764885077,
+    "max": 0.9938463465268805
+  },
+  "dino_identity_similarity": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.9813564777374267,
+    "std": 0.021129211796833948,
+    "min": 0.9064127206802368,
+    "max": 0.9996041655540466
+  },
+  "edge_structure_similarity": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.914138658841451,
+    "std": 0.06428873318023419,
+    "min": 0.7729519009590149,
+    "max": 0.9967575669288635
+  },
+  "interaction_inside_rectangle": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.8970936110459481,
+    "std": 0.08630043776895906,
+    "min": 0.5522219533833373,
+    "max": 0.9924733793486178
+  },
+  "object_support_inside_rectangle": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 1.0,
+    "std": 0.0,
+    "min": 1.0,
+    "max": 1.0
+  },
+  "outside_changed_fraction": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0
+  },
+  "outside_mae": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0
+  },
+  "outside_max_error": {
+    "count": 30,
+    "finite_count": 30,
+    "infinite_count": 0,
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0
+  },
+  "outside_psnr": {
+    "count": 30,
+    "finite_count": 0,
+    "infinite_count": 30,
+    "mean": null,
+    "std": null,
+    "min": null,
+    "max": null
+  },
+  "prior_objects_mean_changed_fraction": {
+    "count": 20,
+    "finite_count": 20,
+    "infinite_count": 0,
+    "mean": 0.00043631062173901046,
+    "std": 0.0012415241066724293,
+    "min": 0.0,
+    "max": 0.004786450662739323
+  },
+  "prior_objects_mean_mae": {
+    "count": 20,
+    "finite_count": 20,
+    "infinite_count": 0,
+    "mean": 0.021526457734343564,
+    "std": 0.06178597621400075,
+    "min": 0.0,
+    "max": 0.26310137457044674
+  }
+}

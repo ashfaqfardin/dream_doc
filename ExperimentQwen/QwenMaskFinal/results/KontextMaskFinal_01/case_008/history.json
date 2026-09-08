@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "chair",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      149,
+      380,
+      386,
+      720
+    ],
+    "placed_box": [
+      158,
+      419,
+      376,
+      720
+    ],
+    "local_crop": [
+      27,
+      334,
+      507,
+      814
+    ],
+    "prompt": "Integrate the pasted chair naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked chair. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 8,
+      "step": 1,
+      "object": "chair",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.053854942321777344,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 1.0,
+      "interaction_inside_rectangle": 0.9702856333339236,
+      "changed_fraction_of_image": 0.025022506713867188,
+      "dino_identity_similarity": 0.9970053434371948,
+      "color_histogram_similarity": 0.9938463465268805,
+      "edge_structure_similarity": 0.933930516242981,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_008/steps/01_chair_final.png"
+  },
+  {
+    "step": 2,
+    "name": "table",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      616,
+      352,
+      960,
+      550
+    ],
+    "placed_box": [
+      654,
+      368,
+      921,
+      550
+    ],
+    "local_crop": [
+      578,
+      254,
+      997,
+      673
+    ],
+    "prompt": "Integrate the pasted table naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked table. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 8,
+      "step": 2,
+      "object": "table",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.04062461853027344,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9999386390133154,
+      "interaction_inside_rectangle": 0.9742476172590262,
+      "changed_fraction_of_image": 0.015542030334472656,
+      "dino_identity_similarity": 0.9911976456642151,
+      "color_histogram_similarity": 0.9876315571627199,
+      "edge_structure_similarity": 0.9220365285873413,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.02285289764404297,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "chair",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_008/steps/02_table_final.png"
+  },
+  {
+    "step": 3,
+    "name": "umbrella",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      405,
+      208,
+      597,
+      450
+    ],
+    "placed_box": [
+      413,
+      321,
+      589,
+      450
+    ],
+    "local_crop": [
+      341,
+      230,
+      661,
+      550
+    ],
+    "prompt": "Integrate the pasted umbrella naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked umbrella. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 8,
+      "step": 3,
+      "object": "umbrella",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.017780303955078125,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9973290598290598,
+      "interaction_inside_rectangle": 0.9077451190731602,
+      "changed_fraction_of_image": 0.0053558349609375,
+      "dino_identity_similarity": 0.9804875254631042,
+      "color_histogram_similarity": 0.9725595237041285,
+      "edge_structure_similarity": 0.8964617252349854,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.02285289764404297,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "chair",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.014565467834472656,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "table",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_008/steps/03_umbrella_final.png"
+  }
+]

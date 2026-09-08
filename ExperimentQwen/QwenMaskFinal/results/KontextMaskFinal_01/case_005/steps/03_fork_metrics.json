@@ -1,0 +1,40 @@
+{
+  "case_id": 5,
+  "step": 3,
+  "object": "fork",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.01508331298828125,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 1.0,
+  "interaction_inside_rectangle": 0.8615326251896813,
+  "changed_fraction_of_image": 0.0031843185424804688,
+  "dino_identity_similarity": 0.9890123605728149,
+  "color_histogram_similarity": 0.9707013855175736,
+  "edge_structure_similarity": 0.8154405951499939,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.016007423400878906,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "teapot",
+      "evaluated_at_step": 3
+    },
+    {
+      "visible_fraction": 0.0281829833984375,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 2,
+      "source_object": "vase",
+      "evaluated_at_step": 3
+    }
+  ],
+  "prior_objects_mean_mae": 0.0,
+  "prior_objects_mean_changed_fraction": 0.0
+}

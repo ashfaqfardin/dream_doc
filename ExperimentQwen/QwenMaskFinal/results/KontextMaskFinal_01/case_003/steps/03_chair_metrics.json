@@ -1,0 +1,40 @@
+{
+  "case_id": 3,
+  "step": 3,
+  "object": "chair",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.07891368865966797,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.999974682262393,
+  "interaction_inside_rectangle": 0.9820658150748668,
+  "changed_fraction_of_image": 0.03766822814941406,
+  "dino_identity_similarity": 0.9972501397132874,
+  "color_histogram_similarity": 0.9843526618013795,
+  "edge_structure_similarity": 0.9908834099769592,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.012807846069335938,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "laptop",
+      "evaluated_at_step": 3
+    },
+    {
+      "visible_fraction": 0.035236358642578125,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 2,
+      "source_object": "clock",
+      "evaluated_at_step": 3
+    }
+  ],
+  "prior_objects_mean_mae": 0.0,
+  "prior_objects_mean_changed_fraction": 0.0
+}

@@ -1,0 +1,31 @@
+{
+  "case_id": 4,
+  "step": 2,
+  "object": "bed",
+  "outside_mae": 0.0,
+  "outside_psnr": Infinity,
+  "outside_max_error": 0.0,
+  "outside_changed_fraction": 0.0,
+  "allowed_change_fraction": 0.13747692108154297,
+  "object_support_inside_rectangle": 1.0,
+  "changed_pixels_inside_interaction": 1.0,
+  "changed_pixels_inside_placement_rectangle": 0.9999713297272501,
+  "interaction_inside_rectangle": 0.9924733793486178,
+  "changed_fraction_of_image": 0.09979057312011719,
+  "dino_identity_similarity": 0.9980864524841309,
+  "color_histogram_similarity": 0.9701859292531577,
+  "edge_structure_similarity": 0.9907675385475159,
+  "prior_object_stability": [
+    {
+      "visible_fraction": 0.039855003356933594,
+      "cross_turn_mae": 0.0,
+      "cross_turn_psnr": Infinity,
+      "cross_turn_changed_fraction": 0.0,
+      "source_step": 1,
+      "source_object": "dresser",
+      "evaluated_at_step": 2
+    }
+  ],
+  "prior_objects_mean_mae": 0.0,
+  "prior_objects_mean_changed_fraction": 0.0
+}

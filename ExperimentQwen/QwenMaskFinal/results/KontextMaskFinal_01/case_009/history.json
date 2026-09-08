@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "basket",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      103,
+      670,
+      302,
+      921
+    ],
+    "placed_box": [
+      111,
+      760,
+      294,
+      921
+    ],
+    "local_crop": [
+      42,
+      686,
+      362,
+      1006
+    ],
+    "prompt": "Integrate the pasted basket naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked basket. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 9,
+      "step": 1,
+      "object": "basket",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.03541374206542969,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9999117348514939,
+      "interaction_inside_rectangle": 0.8574083050573599,
+      "changed_fraction_of_image": 0.02160930633544922,
+      "dino_identity_similarity": 0.9576339721679688,
+      "color_histogram_similarity": 0.8635983764885077,
+      "edge_structure_similarity": 0.9554062485694885,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_009/steps/01_basket_final.png"
+  },
+  {
+    "step": 2,
+    "name": "table",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      450,
+      512,
+      875,
+      757
+    ],
+    "placed_box": [
+      497,
+      532,
+      828,
+      757
+    ],
+    "local_crop": [
+      408,
+      396,
+      916,
+      904
+    ],
+    "prompt": "Integrate the pasted table naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked table. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 9,
+      "step": 2,
+      "object": "table",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.05411720275878906,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9999576665819998,
+      "interaction_inside_rectangle": 0.9794699185845699,
+      "changed_fraction_of_image": 0.022527694702148438,
+      "dino_identity_similarity": 0.9920298457145691,
+      "color_histogram_similarity": 0.9748183580528896,
+      "edge_structure_similarity": 0.9723660349845886,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.02162456512451172,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "basket",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_009/steps/02_table_final.png"
+  },
+  {
+    "step": 3,
+    "name": "chair",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      663,
+      583,
+      832,
+      863
+    ],
+    "placed_box": [
+      670,
+      649,
+      825,
+      863
+    ],
+    "local_crop": [
+      568,
+      582,
+      926,
+      940
+    ],
+    "prompt": "Integrate the pasted chair naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked chair. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 9,
+      "step": 3,
+      "object": "chair",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.03202247619628906,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9998437744102484,
+      "interaction_inside_rectangle": 0.9414795401751147,
+      "changed_fraction_of_image": 0.012208938598632812,
+      "dino_identity_similarity": 0.9913932681083679,
+      "color_histogram_similarity": 0.9866708673755831,
+      "edge_structure_similarity": 0.8585506677627563,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.02162456512451172,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "basket",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.020920753479003906,
+          "cross_turn_mae": 0.24824117548738053,
+          "cross_turn_psnr": 46.66907076459693,
+          "cross_turn_changed_fraction": 0.006792177599489447,
+          "source_step": 2,
+          "source_object": "table",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.12412058774369027,
+      "prior_objects_mean_changed_fraction": 0.0033960887997447234
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_009/steps/03_chair_final.png"
+  }
+]

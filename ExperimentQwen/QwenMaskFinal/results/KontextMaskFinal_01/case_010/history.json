@@ -1,0 +1,172 @@
+[
+  {
+    "step": 1,
+    "name": "table",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      383,
+      533,
+      788,
+      754
+    ],
+    "placed_box": [
+      436,
+      551,
+      734,
+      754
+    ],
+    "local_crop": [
+      354,
+      426,
+      816,
+      888
+    ],
+    "prompt": "Integrate the pasted table naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked table. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 10,
+      "step": 1,
+      "object": "table",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.046993255615234375,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 1.0,
+      "interaction_inside_rectangle": 0.9772708823768163,
+      "changed_fraction_of_image": 0.018236160278320312,
+      "dino_identity_similarity": 0.9899429082870483,
+      "color_histogram_similarity": 0.9614840695014212,
+      "edge_structure_similarity": 0.9140946865081787,
+      "prior_object_stability": [],
+      "prior_objects_mean_mae": null,
+      "prior_objects_mean_changed_fraction": null
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_010/steps/01_table_final.png"
+  },
+  {
+    "step": 2,
+    "name": "chair",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      217,
+      551,
+      352,
+      754
+    ],
+    "placed_box": [
+      222,
+      583,
+      346,
+      754
+    ],
+    "local_crop": [
+      124,
+      514,
+      444,
+      834
+    ],
+    "prompt": "Integrate the pasted chair naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked chair. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 10,
+      "step": 2,
+      "object": "chair",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.023125648498535156,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9985642498205313,
+      "interaction_inside_rectangle": 0.8904284712771661,
+      "changed_fraction_of_image": 0.007970809936523438,
+      "dino_identity_similarity": 0.9889276027679443,
+      "color_histogram_similarity": 0.9797470047507977,
+      "edge_structure_similarity": 0.8245993852615356,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.017945289611816406,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 1,
+          "source_object": "table",
+          "evaluated_at_step": 2
+        }
+      ],
+      "prior_objects_mean_mae": 0.0,
+      "prior_objects_mean_changed_fraction": 0.0
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_010/steps/02_chair_final.png"
+  },
+  {
+    "step": 3,
+    "name": "book",
+    "status": "generated",
+    "seed": 42,
+    "rectangle": [
+      562,
+      461,
+      731,
+      587
+    ],
+    "placed_box": [
+      593,
+      472,
+      699,
+      587
+    ],
+    "local_crop": [
+      486,
+      374,
+      806,
+      694
+    ],
+    "prompt": "Integrate the pasted book naturally into the surrounding scene while keeping its position, design, colour, material, and overall structure unchanged. Photorealistically harmonize only the masked book. Preserve the pasted object's distinctive identity and silhouette. Match the local perspective, illumination, contact, and shadow of the nearby scene. Do not add another object and do not alter unmasked content.",
+    "metrics": {
+      "case_id": 10,
+      "step": 3,
+      "object": "book",
+      "outside_mae": 0.0,
+      "outside_psnr": Infinity,
+      "outside_max_error": 0.0,
+      "outside_changed_fraction": 0.0,
+      "allowed_change_fraction": 0.01747608184814453,
+      "object_support_inside_rectangle": 1.0,
+      "changed_pixels_inside_interaction": 1.0,
+      "changed_pixels_inside_placement_rectangle": 0.9907735221542753,
+      "interaction_inside_rectangle": 0.8363437926330151,
+      "changed_fraction_of_image": 0.008889198303222656,
+      "dino_identity_similarity": 0.9064127206802368,
+      "color_histogram_similarity": 0.9734291084251928,
+      "edge_structure_similarity": 0.8566187620162964,
+      "prior_object_stability": [
+        {
+          "visible_fraction": 0.01554107666015625,
+          "cross_turn_mae": 0.5262027491408935,
+          "cross_turn_psnr": 44.358038912714164,
+          "cross_turn_changed_fraction": 0.009572901325478646,
+          "source_step": 1,
+          "source_object": "table",
+          "evaluated_at_step": 3
+        },
+        {
+          "visible_fraction": 0.007653236389160156,
+          "cross_turn_mae": 0.0,
+          "cross_turn_psnr": Infinity,
+          "cross_turn_changed_fraction": 0.0,
+          "source_step": 2,
+          "source_object": "chair",
+          "evaluated_at_step": 3
+        }
+      ],
+      "prior_objects_mean_mae": 0.26310137457044674,
+      "prior_objects_mean_changed_fraction": 0.004786450662739323
+    },
+    "final": "/content/dream_doc/ExperimentQwen/QwenMaskFinal/final_local_outputs_kontext/case_010/steps/03_book_final.png"
+  }
+]
