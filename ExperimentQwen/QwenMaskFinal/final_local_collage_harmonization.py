@@ -11,7 +11,9 @@ Consequently, every pixel outside M_i remains exactly equal to I_{i-1}.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -44,6 +46,121 @@ from placement_masks import extract_rectangles
 
 HERE = Path(__file__).resolve().parent
 EXPERIMENT_QWEN = HERE.parent
+
+
+class MetricEvaluator:
+    """Localized reference-fidelity metrics with one shared DINOv2 encoder."""
+
+    def __init__(self, model_id: str, device: str, enabled: bool):
+        self.enabled = enabled
+        self.device = torch.device(device)
+        self.processor = None
+        self.model = None
+        if enabled:
+            from transformers import AutoImageProcessor, AutoModel
+
+            loading = tqdm(total=2, desc="Loading DINOv2 metrics", unit="stage")
+            self.processor = AutoImageProcessor.from_pretrained(model_id)
+            loading.update()
+            self.model = AutoModel.from_pretrained(model_id).to(self.device).eval()
+            loading.update()
+            loading.close()
+
+    @staticmethod
+    def masked_view(image: Image.Image, alpha: Image.Image, size: int = 224) -> Image.Image:
+        alpha = alpha.convert("L")
+        bbox = alpha.getbbox()
+        if bbox is None:
+            raise ValueError("Cannot evaluate an empty object mask")
+        image_crop = image.convert("RGB").crop(bbox)
+        alpha_crop = alpha.crop(bbox)
+        neutral = Image.new("RGB", image_crop.size, (127, 127, 127))
+        neutral.paste(image_crop, (0, 0), alpha_crop)
+        side = max(neutral.size)
+        square = Image.new("RGB", (side, side), (127, 127, 127))
+        square.paste(neutral, ((side - neutral.width) // 2, (side - neutral.height) // 2))
+        return square.resize((size, size), Image.Resampling.LANCZOS)
+
+    @torch.inference_mode()
+    def dino_similarity(self, reference: Image.Image, generated: Image.Image) -> float | None:
+        if not self.enabled:
+            return None
+        inputs = self.processor(images=[reference, generated], return_tensors="pt")
+        inputs = {key: value.to(self.device) for key, value in inputs.items()}
+        output = self.model(**inputs)
+        features = getattr(output, "pooler_output", None)
+        if features is None:
+            features = output.last_hidden_state[:, 0]
+        features = torch.nn.functional.normalize(features.float(), dim=-1)
+        return float((features[0] * features[1]).sum().cpu())
+
+    @staticmethod
+    def color_histogram_similarity(
+        reference: Image.Image,
+        reference_alpha: Image.Image,
+        generated: Image.Image,
+        generated_alpha: Image.Image,
+        bins: int = 32,
+    ) -> float:
+        similarities = []
+        for image, alpha in (
+            (reference, reference_alpha),
+            (generated, generated_alpha),
+        ):
+            rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+            weights = np.asarray(alpha.convert("L"), dtype=np.float32).reshape(-1) / 255.0
+            histograms = []
+            for channel in range(3):
+                histogram, _ = np.histogram(
+                    rgb[..., channel].reshape(-1),
+                    bins=bins,
+                    range=(0, 256),
+                    weights=weights,
+                )
+                histogram = histogram.astype(np.float64)
+                histogram /= max(histogram.sum(), 1e-12)
+                histograms.append(histogram)
+            similarities.append(histograms)
+        scores = [
+            float(np.sqrt(similarities[0][channel] * similarities[1][channel]).sum())
+            for channel in range(3)
+        ]
+        return float(np.mean(scores))
+
+    @staticmethod
+    def edge_similarity(reference_view: Image.Image, generated_view: Image.Image) -> float:
+        arrays = []
+        for image in (reference_view, generated_view):
+            gray = np.asarray(image.convert("L"), dtype=np.float32) / 255.0
+            dy, dx = np.gradient(gray)
+            edge = np.sqrt(dx * dx + dy * dy).reshape(-1)
+            arrays.append(edge)
+        denominator = float(np.linalg.norm(arrays[0]) * np.linalg.norm(arrays[1]))
+        return float(np.dot(arrays[0], arrays[1]) / max(denominator, 1e-12))
+
+    def object_fidelity(
+        self,
+        reference_rgb: Image.Image,
+        reference_alpha: Image.Image,
+        final: Image.Image,
+        placed_alpha: Image.Image,
+    ) -> dict[str, float | None]:
+        reference_view = self.masked_view(reference_rgb, reference_alpha)
+        final_view = self.masked_view(final, placed_alpha)
+        return {
+            "dino_identity_similarity": self.dino_similarity(reference_view, final_view),
+            "color_histogram_similarity": self.color_histogram_similarity(
+                reference_rgb, reference_alpha, final, placed_alpha
+            ),
+            "edge_structure_similarity": self.edge_similarity(reference_view, final_view),
+        }
+
+    def close(self) -> None:
+        if self.model is not None:
+            self.model.to("cpu")
+            del self.model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 def load_inpaint_pipeline(args):
@@ -196,13 +313,87 @@ def preservation_metrics(
     outside = ~allowed
     difference = np.abs(final_array - before_array)
     outside_difference = difference[outside]
+    mse = float(np.square(outside_difference.astype(np.float64)).mean()) if outside_difference.size else 0.0
     return {
         "outside_mae": float(outside_difference.mean()) if outside_difference.size else 0.0,
+        "outside_psnr": float("inf") if mse == 0 else float(20 * math.log10(255.0 / math.sqrt(mse))),
         "outside_max_error": float(outside_difference.max()) if outside_difference.size else 0.0,
         "outside_changed_fraction": float(
             (difference.max(axis=2)[outside] > 0).mean()
         ) if outside.any() else 0.0,
         "allowed_change_fraction": float(allowed.mean()),
+    }
+
+
+def spatial_metrics(
+    before: Image.Image,
+    final: Image.Image,
+    placed_alpha: Image.Image,
+    interaction: Image.Image,
+    rectangle: tuple[int, int, int, int],
+    change_threshold: int,
+) -> dict[str, float]:
+    width, height = before.size
+    x0, y0, x1, y1 = rectangle
+    rectangle_mask = np.zeros((height, width), dtype=bool)
+    rectangle_mask[y0:y1, x0:x1] = True
+    object_support = np.asarray(placed_alpha.convert("L"), dtype=np.uint8) > 0
+    allowed = np.asarray(interaction.convert("L"), dtype=np.uint8) > 0
+    difference = np.max(
+        np.abs(
+            np.asarray(final, dtype=np.int16)
+            - np.asarray(before, dtype=np.int16)
+        ),
+        axis=2,
+    )
+    changed = difference > change_threshold
+    changed_count = int(changed.sum())
+    object_count = int(object_support.sum())
+    return {
+        "object_support_inside_rectangle": float(
+            (object_support & rectangle_mask).sum() / max(object_count, 1)
+        ),
+        "changed_pixels_inside_interaction": float(
+            (changed & allowed).sum() / max(changed_count, 1)
+        ),
+        "changed_pixels_inside_placement_rectangle": float(
+            (changed & rectangle_mask).sum() / max(changed_count, 1)
+        ),
+        "interaction_inside_rectangle": float(
+            (allowed & rectangle_mask).sum() / max(int(allowed.sum()), 1)
+        ),
+        "changed_fraction_of_image": float(changed.mean()),
+    }
+
+
+def cross_turn_stability(
+    reference_turn: Image.Image,
+    current: Image.Image,
+    visible_mask: Image.Image,
+    threshold: int,
+) -> dict[str, float]:
+    visible = np.asarray(visible_mask.convert("L"), dtype=np.uint8) > 0
+    if not visible.any():
+        return {
+            "visible_fraction": 0.0,
+            "cross_turn_mae": 0.0,
+            "cross_turn_psnr": float("inf"),
+            "cross_turn_changed_fraction": 0.0,
+        }
+    difference = np.abs(
+        np.asarray(current, dtype=np.int16)
+        - np.asarray(reference_turn, dtype=np.int16)
+    )[visible]
+    mse = float(np.square(difference.astype(np.float64)).mean())
+    return {
+        "visible_fraction": float(visible.mean()),
+        "cross_turn_mae": float(difference.mean()),
+        "cross_turn_psnr": float("inf") if mse == 0 else float(
+            20 * math.log10(255.0 / math.sqrt(mse))
+        ),
+        "cross_turn_changed_fraction": float(
+            (difference.max(axis=1) > threshold).mean()
+        ),
     }
 
 
@@ -299,7 +490,7 @@ def prepare_cutouts(cases: list[dict], args) -> dict[str, tuple[Image.Image, Ima
     return cutouts
 
 
-def run_case(pipe, case: dict, cutouts: dict, args) -> dict:
+def run_case(pipe, case: dict, cutouts: dict, evaluator: MetricEvaluator, args) -> dict:
     case_id = int(case["id"])
     base_path = args.base_dir / f"base_{case_id:03d}.png"
     mask_path = args.mask_dir / f"base_{case_id:03d}.png"
@@ -320,13 +511,31 @@ def run_case(pipe, case: dict, cutouts: dict, args) -> dict:
     current.save(case_dir / "base.png")
     Image.open(mask_path).save(case_dir / "placement_labels.png")
     history = []
+    metric_rows = []
+    tracked_objects: list[dict] = []
 
     for step, (item, rectangle) in enumerate(zip(objects, rectangles), start=1):
         name = item["name"]
         prefix = steps_dir / f"{step:02d}_{slug(name)}"
         final_path = Path(f"{prefix}_final.png")
-        if args.resume and final_path.is_file():
+        metrics_path = Path(f"{prefix}_metrics.json")
+        alpha_path = Path(f"{prefix}_object_alpha.png")
+        if args.resume and final_path.is_file() and metrics_path.is_file() and alpha_path.is_file():
             current = Image.open(final_path).convert("RGB")
+            placed_alpha = Image.open(alpha_path).convert("L")
+            new_support = hard_mask(placed_alpha, args.alpha_threshold)
+            for tracked in tracked_objects:
+                tracked["visible"] = ImageChops.subtract(tracked["visible"], new_support)
+            saved_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            metric_rows.append({key: value for key, value in saved_metrics.items() if not isinstance(value, list)})
+            tracked_objects.append(
+                {
+                    "step": step,
+                    "name": name,
+                    "snapshot": current.copy(),
+                    "visible": new_support,
+                }
+            )
             history.append({"step": step, "name": name, "status": "resumed", "final": str(final_path)})
             continue
 
@@ -350,17 +559,72 @@ def run_case(pipe, case: dict, cutouts: dict, args) -> dict:
         final, blend = paste_local_result(
             before, generated_crop, allowed, crop_box, args.feather_px
         )
-        metrics = preservation_metrics(before, final, allowed)
-        if metrics["outside_max_error"] != 0:
-            raise AssertionError(f"Non-disturbance constraint failed: {metrics}")
+        preservation = preservation_metrics(before, final, allowed)
+        spatial = spatial_metrics(
+            before,
+            final,
+            paste_alpha,
+            allowed,
+            rectangle.box,
+            args.change_threshold,
+        )
+        fidelity = evaluator.object_fidelity(
+            cutout_rgb,
+            cutout_alpha,
+            final,
+            paste_alpha,
+        )
+        if preservation["outside_max_error"] != 0:
+            raise AssertionError(f"Non-disturbance constraint failed: {preservation}")
+
+        new_object_support = hard_mask(paste_alpha, args.alpha_threshold)
+        prior_stability = []
+        for tracked in tracked_objects:
+            visible = ImageChops.subtract(tracked["visible"], new_object_support)
+            stability = cross_turn_stability(
+                tracked["snapshot"],
+                final,
+                visible,
+                args.change_threshold,
+            )
+            stability.update(
+                {
+                    "source_step": tracked["step"],
+                    "source_object": tracked["name"],
+                    "evaluated_at_step": step,
+                }
+            )
+            prior_stability.append(stability)
+            tracked["visible"] = visible
+
+        metrics = {
+            "case_id": case_id,
+            "step": step,
+            "object": name,
+            **preservation,
+            **spatial,
+            **fidelity,
+            "prior_object_stability": prior_stability,
+        }
+        if prior_stability:
+            metrics["prior_objects_mean_mae"] = float(
+                np.mean([record["cross_turn_mae"] for record in prior_stability])
+            )
+            metrics["prior_objects_mean_changed_fraction"] = float(
+                np.mean([record["cross_turn_changed_fraction"] for record in prior_stability])
+            )
+        else:
+            metrics["prior_objects_mean_mae"] = None
+            metrics["prior_objects_mean_changed_fraction"] = None
 
         before.save(Path(f"{prefix}_before.png"))
         collage.save(Path(f"{prefix}_collage.png"))
-        paste_alpha.save(Path(f"{prefix}_object_alpha.png"))
+        paste_alpha.save(alpha_path)
         allowed.save(Path(f"{prefix}_interaction_mask.png"))
         blend.save(Path(f"{prefix}_blend_mask.png"))
         generated_crop.save(Path(f"{prefix}_local_qwen.png"))
         final.save(final_path)
+        save_json(metrics, metrics_path)
         diagnostic_panel(
             before,
             collage,
@@ -385,12 +649,62 @@ def run_case(pipe, case: dict, cutouts: dict, args) -> dict:
                 "final": str(final_path),
             }
         )
+        metric_rows.append(
+            {key: value for key, value in metrics.items() if key != "prior_object_stability"}
+        )
+        tracked_objects.append(
+            {
+                "step": step,
+                "name": name,
+                "snapshot": final.copy(),
+                "visible": new_object_support,
+            }
+        )
         current = final
         save_json(history, case_dir / "history.json")
 
     current.save(case_dir / "FINAL.png")
     save_json(history, case_dir / "history.json")
-    return {"id": case_id, "steps": len(history), "final": str(case_dir / "FINAL.png")}
+    return {
+        "id": case_id,
+        "steps": len(history),
+        "final": str(case_dir / "FINAL.png"),
+        "metrics": metric_rows,
+    }
+
+
+def write_metric_tables(results: list[dict], out_dir: Path) -> None:
+    rows = [row for result in results for row in result.get("metrics", [])]
+    save_json(rows, out_dir / "metrics.json")
+    if not rows:
+        return
+    preferred = ["case_id", "step", "object"]
+    fields = preferred + sorted({key for row in rows for key in row} - set(preferred))
+    with (out_dir / "metrics.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    aggregate = {}
+    for field in fields:
+        values = [
+            float(row[field])
+            for row in rows
+            if isinstance(row.get(field), (int, float)) and row.get(field) is not None
+        ]
+        if not values:
+            continue
+        finite = np.asarray([value for value in values if math.isfinite(value)], dtype=np.float64)
+        aggregate[field] = {
+            "count": len(values),
+            "finite_count": int(finite.size),
+            "infinite_count": len(values) - int(finite.size),
+            "mean": float(finite.mean()) if finite.size else None,
+            "std": float(finite.std()) if finite.size else None,
+            "min": float(finite.min()) if finite.size else None,
+            "max": float(finite.max()) if finite.size else None,
+        }
+    save_json(aggregate, out_dir / "metrics_summary.json")
 
 
 def parse_args() -> argparse.Namespace:
@@ -438,6 +752,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rmbg_crop_threshold", type=int, default=8)
     parser.add_argument("--alpha_low", type=float, default=10.0)
     parser.add_argument("--alpha_high", type=float, default=45.0)
+    parser.add_argument("--metrics", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--metric_model_id", default="facebook/dinov2-base")
+    parser.add_argument("--metric_device", default="cpu")
+    parser.add_argument("--change_threshold", type=int, default=8)
     return parser.parse_args()
 
 
@@ -452,6 +770,8 @@ def validate_args(args) -> None:
         raise ValueError("--context_fraction must lie in [0, 1]")
     if args.minimum_crop_side <= 0:
         raise ValueError("--minimum_crop_side must be positive")
+    if not 0 <= args.change_threshold <= 255:
+        raise ValueError("--change_threshold must lie in [0, 255]")
 
 
 def main() -> None:
@@ -468,12 +788,17 @@ def main() -> None:
 
     cutouts = prepare_cutouts(cases, args)
     pipe = load_inpaint_pipeline(args)
+    evaluator = MetricEvaluator(args.metric_model_id, args.metric_device, args.metrics)
     summary = []
-    for case in tqdm(cases, desc="Final local collage harmonization", unit="case"):
-        summary.append(run_case(pipe, case, cutouts, args))
-        save_json(summary, args.out_dir / "summary.json")
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+    try:
+        for case in tqdm(cases, desc="Final local collage harmonization", unit="case"):
+            summary.append(run_case(pipe, case, cutouts, evaluator, args))
+            save_json(summary, args.out_dir / "summary.json")
+            write_metric_tables(summary, args.out_dir)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+    finally:
+        evaluator.close()
     print(f"Completed {len(summary)} case(s): {args.out_dir}")
 
 
